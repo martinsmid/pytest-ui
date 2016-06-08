@@ -6,6 +6,14 @@ import logging
 import unittest
 from StringIO import StringIO
 
+def result_state(test_result):
+    if test_result.skipped:
+        return 'skipped'
+    elif test_result.failures:
+        return 'failed'
+    elif test_result.errors:
+        return 'error'
+
 def get_tests(suite):
     test_list = {}
     for item in suite:
@@ -42,7 +50,7 @@ class TestLine2(urwid.Widget):
 
     def __init__(self, test_id, *args, **kwargs):
         self.test_id = test_id
-        self.test_result = 'X'
+        self.test_result = ' '
         super(TestLine2, self).__init__(*args, **kwargs)
 
     def rows(self, size, focus=False):
@@ -55,8 +63,21 @@ class TestLine2(urwid.Widget):
     def keypress(self, size, key):
         if key == 'enter':
             self._emit('click')
-            
+
         return key
+
+
+class TestResultWindow(urwid.WidgetWrap):
+    def __init__(self, text, escape_method):
+        self.escape_method = escape_method
+        super(TestResultWindow, self).__init__(urwid.Filler(urwid.Text(text)))
+
+    def keypress(self, size, key):
+        raise
+        if key == 'esc':
+            self.escape_method()
+        return None
+
 
 class TestRunner(object):
 
@@ -64,17 +85,22 @@ class TestRunner(object):
         loader = unittest.TestLoader()
         top_suite = loader.discover('.')
         self.tests = get_tests(top_suite)
-        self.w_main = urwid.Padding(self.menu(u'Python Urwid Test Runner', sorted(self.tests.keys())), left=2, right=2)
+        self.w_test_list = urwid.Padding(self.menu(u'Python Urwid Test Runner', sorted(self.tests.keys())), left=2, right=2)
+        self.w_main = self.w_test_list
 
     def run(self):
         urwid.MainLoop(self.w_main, palette=[('reversed', 'standout', '')],
                        unhandled_input=handle_input).run()
 
-    def item_chosen(self, button, choice):
+    def item_chosen(self, widget, choice):
         output = StringIO()
-        unittest.TextTestRunner(stream=output, verbosity=2).run(self.tests[choice])
-        self.w_main.original_widget = urwid.Filler(urwid.Text(output.getvalue()))
+        result = unittest.TextTestRunner(stream=output, verbosity=2).run(self.tests[choice])
+        result.test_result = result_state(result)
+        self.w_main.original_widget = TestResultWindow(output.getvalue(), self.close_result_window)
         output.close()
+
+    def close_result_window(self):
+        self.w_main = self.w_test_list
 
     def menu(self, title, choices):
         body = [urwid.Text(title), urwid.Divider()]
