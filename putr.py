@@ -38,6 +38,8 @@ class TestLine2(urwid.Widget):
     _sizing = frozenset(['flow'])
     _selectable = True
 
+    signals = ["click"]
+
     def __init__(self, test_id, *args, **kwargs):
         self.test_id = test_id
         self.test_result = 'X'
@@ -51,6 +53,9 @@ class TestLine2(urwid.Widget):
         return urwid.TextCanvas(['{} [{}]'.format(self.test_id.ljust(maxcol - 4), self.test_result.upper()[0])], maxcol=maxcol)
 
     def keypress(self, size, key):
+        if key == 'enter':
+            self._emit('click')
+            
         return key
 
 class TestRunner(object):
@@ -75,7 +80,7 @@ class TestRunner(object):
         body = [urwid.Text(title), urwid.Divider()]
         for choice in choices:
             button = TestLine2(choice)
-            # urwid.connect_signal(button, 'click', self.item_chosen, choice)
+            urwid.connect_signal(button, 'click', self.item_chosen, choice)
             body.append(urwid.AttrMap(button, None, focus_map='reversed'))
         return urwid.ListBox(urwid.SimpleFocusListWalker(body))
 
