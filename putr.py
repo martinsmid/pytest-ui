@@ -14,6 +14,8 @@ def result_state(test_result):
     elif test_result.errors:
         return 'error'
 
+    return 'x'
+
 def get_tests(suite):
     test_list = {}
     for item in suite:
@@ -68,39 +70,73 @@ class TestLine2(urwid.Widget):
 
 
 class TestResultWindow(urwid.WidgetWrap):
+    _sizing = frozenset(['box'])
+    # _selectable = True
+
     def __init__(self, text, escape_method):
         self.escape_method = escape_method
-        super(TestResultWindow, self).__init__(urwid.Filler(urwid.Text(text)))
+        super(TestResultWindow, self).__init__(urwid.LineBox(urwid.Filler(urwid.Text(text))))
 
     def keypress(self, size, key):
-        raise
+        raise urwid.ExitMainLoop()
         if key == 'esc':
             self.escape_method()
+
         return None
 
+class TestResultWindow2(urwid.LineBox):
+    _sizing = frozenset(['box'])
+    # _selectable = True
+
+    def __init__(self, text, escape_method):
+        self.escape_method = escape_method
+        super(TestResultWindow2, self).__init__(urwid.Filler(urwid.Text(text)))
+
+    def keypress(self, size, key):
+        raise urwid.ExitMainLoop()
+        if key == 'esc':
+            self.escape_method()
+
+        return key
 
 class TestRunner(object):
 
     def __init__(self):
+        urwid.set_encoding("UTF-8")
         loader = unittest.TestLoader()
         top_suite = loader.discover('.')
         self.tests = get_tests(top_suite)
         self.w_test_list = urwid.Padding(self.menu(u'Python Urwid Test Runner', sorted(self.tests.keys())), left=2, right=2)
         self.w_main = self.w_test_list
+        self.main_loop = None
 
     def run(self):
-        urwid.MainLoop(self.w_main, palette=[('reversed', 'standout', '')],
-                       unhandled_input=handle_input).run()
+        self.main_loop = urwid.MainLoop(self.w_main, palette=[('reversed', 'standout', '')],
+                       unhandled_input=handle_input)
+        self.main_loop.run()
+
+    def popup(self, widget):
+        self._popup_original = self.main_loop.widget
+        self.main_loop.widget = widget
+        return
+        self.main_loop.widget = urwid.Overlay(
+            widget,   
+            self._popup_original,
+            'left', ('relative', 80), 'top', ('relative', 80)
+        )
 
     def item_chosen(self, widget, choice):
         output = StringIO()
-        result = unittest.TextTestRunner(stream=output, verbosity=2).run(self.tests[choice])
-        result.test_result = result_state(result)
-        self.w_main.original_widget = TestResultWindow(output.getvalue(), self.close_result_window)
+        suite = self.tests[choice]
+        result = unittest.TextTestRunner(stream=output, verbosity=2).run(suite)
+        widget.test_result = result_state(result)
+        self.popup(
+            TestResultWindow(output.getvalue(), self.popup_close)
+        )
         output.close()
 
-    def close_result_window(self):
-        self.w_main = self.w_test_list
+    def popup_close(self):
+        self.main_loop.widget = self._popup_original
 
     def menu(self, title, choices):
         body = [urwid.Text(title), urwid.Divider()]
