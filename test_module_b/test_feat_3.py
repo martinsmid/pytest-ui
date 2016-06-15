@@ -2,6 +2,10 @@ import unittest
 
 
 class TestE(unittest.TestCase):
+    def test_many_lines(self):
+    	for i in xrange(100):
+    		print 'Many lines', i
+
     def test_feat_1_case_1(self):
         pass
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+import sys
 import urwid
 import logging
 import unittest
@@ -67,34 +68,38 @@ class TestLine2(urwid.Widget):
 
 
 class TestResultWindow(urwid.WidgetWrap):
-    _sizing = frozenset(['box'])
-    # _selectable = True
+    _sizing = frozenset(['box', 'flow', 'fixed'])
 
     def __init__(self, text, escape_method):
         self.escape_method = escape_method
         super(TestResultWindow, self).__init__(urwid.LineBox(urwid.Filler(urwid.Text(text))))
 
     def keypress(self, size, key):
-        raise urwid.ExitMainLoop()
         if key == 'esc':
             self.escape_method()
 
         return None
 
+    def selectable(self):
+        return True
+
+
 class TestResultWindow2(urwid.LineBox):
     _sizing = frozenset(['box'])
-    # _selectable = True
 
     def __init__(self, text, escape_method):
         self.escape_method = escape_method
         super(TestResultWindow2, self).__init__(urwid.Filler(urwid.Text(text)))
 
     def keypress(self, size, key):
-        raise urwid.ExitMainLoop()
         if key == 'esc':
             self.escape_method()
 
         return key
+
+    def selectable(self):
+        return True
+
 
 class TestRunner(object):
 
@@ -118,29 +123,41 @@ class TestRunner(object):
         self.main_loop.widget = urwid.Overlay(
             widget,   
             self._popup_original,
-            'left', ('relative', 80), 'top', ('relative', 80)
+            'center', ('relative', 90), 'middle', ('relative', 90)
         )
 
     def _run_test(self, test_id):
-        output = StringIO()
+        _orig_stdout = sys.stdout
+        _orig_stderr = sys.stderr
+        sys.stdout = StringIO()
+        sys.stderr = StringIO()
+
         suite = self.tests[test_id]
-        result = unittest.TextTestRunner(stream=output, verbosity=2).run(suite)
+        result = unittest.TextTestRunner(stream=sys.stdout, verbosity=2).run(suite)
         result_state_str = result_state(result)
+
+
         self.test_data[test_id]['widget'].test_result = result_state_str
         self.test_data[test_id].update({
-            'output': output.getvalue(),
+            'output': sys.stdout.getvalue(),
             'result_state': result_state_str,
         })
-        output.close()
+        sys.stdout.close()
+        sys.stderr.close()
+
+        sys.stdout = _orig_stdout
+        sys.stderr = _orig_stderr
 
     def _run_all_tests(self):
         for test_id, suite in self.tests.iteritems():
             self._run_test(test_id)
 
-    def item_chosen(self, widget, choice):
-        self.popup(
-            TestResultWindow(self.test_data[choice]['output'], self.popup_close)
-        )
+    def show_test_detail(self, widget, choice):
+        # if test has already been run
+        if 'output' in self.test_data[choice]:
+            self.popup(
+                TestResultWindow2(self.test_data[choice]['output'], self.popup_close)
+            )
 
     def popup_close(self):
         self.main_loop.widget = self._popup_original
@@ -150,7 +167,7 @@ class TestRunner(object):
         for choice in choices:
             test_line = TestLine2(choice)
             self.test_data[choice] = {'widget': test_line}
-            urwid.connect_signal(test_line, 'click', self.item_chosen, choice)
+            urwid.connect_signal(test_line, 'click', self.show_test_detail, choice)
             body.append(urwid.AttrMap(test_line, None, focus_map='reversed'))
         return urwid.ListBox(urwid.SimpleFocusListWalker(body))
 
