@@ -102,6 +102,11 @@ class TestResultWindow2(urwid.LineBox):
 
 
 class TestRunner(object):
+    palette = [
+        ('reversed', 'standout', ''),
+        ('edit', '', 'dark blue', '', '', '#008'),
+        ('edit_focus', '', 'light blue', '', '', '#00b'),
+    ]
 
     def __init__(self):
         urwid.set_encoding("UTF-8")
@@ -109,19 +114,24 @@ class TestRunner(object):
         top_suite = loader.discover('.')
         self.tests = get_tests(top_suite)
         self.test_data = {}
-        self.w_test_list = urwid.Padding(self.test_listbox(u'Python Urwid Test Runner', sorted(self.tests.keys())), left=2, right=2)
-        self.w_main = self.w_test_list
+        self.w_main = self._main_screen()
         self.main_loop = None
 
+    def _main_screen(self):
+        return urwid.Padding(
+            self.test_listbox(u'Python Urwid Test Runner', sorted(self.tests.keys())),
+            left=2, right=2
+        )
+
     def run(self):
-        self.main_loop = urwid.MainLoop(self.w_main, palette=[('reversed', 'standout', '')],
+        self.main_loop = urwid.MainLoop(self.w_main, palette=self.palette,
                        unhandled_input=self.unhandled_keypress)
         self.main_loop.run()
 
     def popup(self, widget):
         self._popup_original = self.main_loop.widget
         self.main_loop.widget = urwid.Overlay(
-            widget,   
+            widget,
             self._popup_original,
             'center', ('relative', 90), 'middle', ('relative', 90)
         )
@@ -138,6 +148,7 @@ class TestRunner(object):
 
 
         self.test_data[test_id]['widget'].test_result = result_state_str
+        self.test_data[test_id]['widget']._invalidate()
         self.test_data[test_id].update({
             'output': sys.stdout.getvalue(),
             'result_state': result_state_str,
@@ -163,7 +174,8 @@ class TestRunner(object):
         self.main_loop.widget = self._popup_original
 
     def test_listbox(self, title, choices):
-        body = [urwid.Text(title), urwid.Divider()]
+        self.w_filter_edit = urwid.AttrMap(urwid.Edit('Filter '), 'edit', 'edit_focus')
+        body = [urwid.Text(title, align='center'), urwid.Divider(), self.w_filter_edit, urwid.Divider()]
         for choice in choices:
             test_line = TestLine2(choice)
             self.test_data[choice] = {'widget': test_line}
