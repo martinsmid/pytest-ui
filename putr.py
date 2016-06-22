@@ -15,7 +15,7 @@ def result_state(test_result):
     elif test_result.errors:
         return 'error'
 
-    return 'x'
+    return 'ok'
 
 def get_tests(suite):
     test_list = {}
@@ -39,7 +39,7 @@ class TestLine(urwid.Columns):
         self._test_result = ' '
 
         self.w_text = urwid.Text(text)
-        self.w_state = urwid.Text(u'[{}]'.format(self._test_result.upper()[0]))
+        self.w_state = urwid.Text(['[', (self._test_result, self._test_result.upper()[0]), ']'])
         super(TestLine, self).__init__([self.w_text, self.w_state])
 
 class TestLine2(urwid.Widget):
@@ -51,6 +51,7 @@ class TestLine2(urwid.Widget):
     def __init__(self, test_id, *args, **kwargs):
         self.test_id = test_id
         self.test_result = ' '
+        self._is_running = False
         super(TestLine2, self).__init__(*args, **kwargs)
 
     def rows(self, size, focus=False):
@@ -58,7 +59,12 @@ class TestLine2(urwid.Widget):
 
     def render(self, size, focus=False):
         (maxcol,) = size
-        return urwid.TextCanvas(['{} [{}]'.format(self.test_id.ljust(maxcol - 4), self.test_result.upper()[0])], maxcol=maxcol)
+        attr = []
+        main_attr = ('running', maxcol - 13) if self._is_running else (None, maxcol - 13)
+        state_attr = (self.test_result.lower(), 10)
+
+        return urwid.TextCanvas(['{} [{:10}]'.format(self.test_id.ljust(maxcol - 13), self.test_result.lower()[:10])],
+            maxcol=maxcol, attr=[[main_attr, (None, 2), state_attr, (None, 1)]])
 
     def keypress(self, size, key):
         if key == 'enter':
@@ -103,10 +109,17 @@ class TestResultWindow2(urwid.LineBox):
 
 class TestRunner(object):
     palette = [
-        ('reversed', 'standout', ''),
-        ('edit', '', 'dark blue', '', '', '#008'),
-        ('edit_focus', '', 'light blue', '', '', '#00b'),
+        ('reversed',    '',           'dark gray'),
+        ('edit',        '',           'dark blue',    '', '',     '#008'),
+        ('edit_focus',  '',           'light blue',   '', '',     '#00b'),
+        ('failed',      'light red',  '',             '', '',     '#b00'),
+        ('error',       'brown',  '',    '', '#f88', '#b00'),
+        ('skipped',     'light gray', '',             '', '#f88', '#b00'),
+        ('running',     'yellow',     '',             '', '',     ''),
+        ('ok',          'dark green', '',             '', '',     ''),
     ]
+
+    _test_fail_states = ['failed', 'error', None]
 
     def __init__(self):
         urwid.set_encoding("UTF-8")
@@ -118,10 +131,23 @@ class TestRunner(object):
         self.main_loop = None
 
     def _main_screen(self):
+        self.w_filter_edit = urwid.AttrMap(urwid.Edit('Filter '), 'edit', 'edit_focus')
+        self._init_test_listbox()
         return urwid.Padding(
-            self.test_listbox(u'Python Urwid Test Runner', sorted(self.tests.keys())),
+            urwid.Pile(
+                [
+                 ('pack', urwid.Text(u'Python Urwid Test Runner', align='center')),
+                 ('pack', urwid.Divider()),
+                 ('pack', self.w_filter_edit),
+                 ('pack', urwid.Divider()),
+                 self.w_test_listbox
+                 ]
+            ),
             left=2, right=2
         )
+
+    def _init_test_listbox(self):
+        self.w_test_listbox = self.test_listbox(sorted(self.tests.keys()))
 
     def run(self):
         self.main_loop = urwid.MainLoop(self.w_main, palette=self.palette,
@@ -137,6 +163,13 @@ class TestRunner(object):
         )
 
     def _run_test(self, test_id):
+
+        self.test_data[test_id]['widget']._is_running = True
+        self.test_data[test_id]['widget']._invalidate()
+        # self.w_test_listbox._invalidate()
+        # self.w_main._invalidate()
+        self.main_loop.draw_screen()
+
         _orig_stdout = sys.stdout
         _orig_stderr = sys.stderr
         sys.stdout = StringIO()
@@ -148,7 +181,6 @@ class TestRunner(object):
 
 
         self.test_data[test_id]['widget'].test_result = result_state_str
-        self.test_data[test_id]['widget']._invalidate()
         self.test_data[test_id].update({
             'output': sys.stdout.getvalue(),
             'result_state': result_state_str,
@@ -159,9 +191,24 @@ class TestRunner(object):
         sys.stdout = _orig_stdout
         sys.stderr = _orig_stderr
 
-    def _run_all_tests(self):
-        for test_id, suite in self.tests.iteritems():
+        self.test_data[test_id]['widget']._is_running = False
+        self.test_data[test_id]['widget']._invalidate()
+        # self.w_test_listbox._invalidate()
+        # self.w_main._invalidate()
+        self.main_loop.draw_screen()
+
+    def _get_failed_tests(self):
+        return {test_id: test for test_id, test in self.tests.iteritems()
+                                  if self.test_data[test_id].get('result_state') in self._test_fail_states}
+
+    def _run_tests(self, failed_only=True):
+        tests = self._get_failed_tests() if failed_only else self.tests
+        for test_id, suite in tests.iteritems():
             self._run_test(test_id)
+
+        self.w_test_listbox._invalidate()
+        self.w_main._invalidate()
+        self.main_loop.draw_screen()
 
     def show_test_detail(self, widget, choice):
         # if test has already been run
@@ -173,21 +220,22 @@ class TestRunner(object):
     def popup_close(self):
         self.main_loop.widget = self._popup_original
 
-    def test_listbox(self, title, choices):
-        self.w_filter_edit = urwid.AttrMap(urwid.Edit('Filter '), 'edit', 'edit_focus')
-        body = [urwid.Text(title, align='center'), urwid.Divider(), self.w_filter_edit, urwid.Divider()]
+    def test_listbox(self, choices):
+        list_items = []
         for choice in choices:
             test_line = TestLine2(choice)
             self.test_data[choice] = {'widget': test_line}
             urwid.connect_signal(test_line, 'click', self.show_test_detail, choice)
-            body.append(urwid.AttrMap(test_line, None, focus_map='reversed'))
-        return urwid.ListBox(urwid.SimpleFocusListWalker(body))
+            list_items.append(urwid.AttrMap(test_line, None, focus_map='reversed'))
+        return urwid.ListBox(urwid.SimpleFocusListWalker(list_items))
 
     def unhandled_keypress(self, key):
         if key in ('q', 'Q'):
             exit_program(None)
+        elif key == 'shift r':
+            self._run_tests()
         elif key == 'r':
-            self._run_all_tests()
+            self._run_tests(failed_only=True)
 
 
 if __name__ == '__main__':
