@@ -4,6 +4,7 @@
 import sys
 import urwid
 import logging
+from collections import OrderedDict
 import unittest
 from StringIO import StringIO
 
@@ -25,9 +26,7 @@ def get_tests(suite):
         else:
             test_list[item.id()] = item
 
-    return test_list
-
-
+    return OrderedDict(sorted(test_list.iteritems()))
 
 def exit_program(button):
     raise urwid.ExitMainLoop()
@@ -113,7 +112,7 @@ class TestRunner(object):
         ('edit',        '',           'dark blue',    '', '',     '#008'),
         ('edit_focus',  '',           'light blue',   '', '',     '#00b'),
         ('failed',      'light red',  '',             '', '',     '#b00'),
-        ('error',       'brown',  '',    '', '#f88', '#b00'),
+        ('error',       'brown',      '',             '', '#f88', '#b00'),
         ('skipped',     'light gray', '',             '', '#f88', '#b00'),
         ('running',     'yellow',     '',             '', '',     ''),
         ('ok',          'dark green', '',             '', '',     ''),
@@ -127,13 +126,13 @@ class TestRunner(object):
         top_suite = loader.discover('.')
         self.tests = get_tests(top_suite)
         self.test_data = {}
-        self.w_main = self._main_screen()
+        self._init_main_screen()
         self.main_loop = None
 
-    def _main_screen(self):
+    def _init_main_screen(self):
         self.w_filter_edit = urwid.AttrMap(urwid.Edit('Filter '), 'edit', 'edit_focus')
         self._init_test_listbox()
-        return urwid.Padding(
+        self.w_main = urwid.Padding(
             urwid.Pile(
                 [
                  ('pack', urwid.Text(u'Python Urwid Test Runner', align='center')),
@@ -147,11 +146,13 @@ class TestRunner(object):
         )
 
     def _init_test_listbox(self):
-        self.w_test_listbox = self.test_listbox(sorted(self.tests.keys()))
+        self.w_test_listbox = self.test_listbox(self.tests.keys())
 
     def run(self):
         self.main_loop = urwid.MainLoop(self.w_main, palette=self.palette,
                        unhandled_input=self.unhandled_keypress)
+
+        # self._run_tests()
         self.main_loop.run()
 
     def popup(self, widget):
@@ -161,6 +162,9 @@ class TestRunner(object):
             self._popup_original,
             'center', ('relative', 90), 'middle', ('relative', 90)
         )
+
+    def _get_test_position(self, test_id):
+        return self.test_data[test_id]['position']
 
     def _run_test(self, test_id):
 
@@ -178,7 +182,9 @@ class TestRunner(object):
         suite = self.tests[test_id]
         result = unittest.TextTestRunner(stream=sys.stdout, verbosity=2).run(suite)
         result_state_str = result_state(result)
-
+        if result_state_str in ['failed', 'error'] and not self._first_failed_focused:
+            self.w_test_listbox.set_focus(self._get_test_position(test_id))
+            self._first_failed_focused = True
 
         self.test_data[test_id]['widget'].test_result = result_state_str
         self.test_data[test_id].update({
@@ -198,11 +204,13 @@ class TestRunner(object):
         self.main_loop.draw_screen()
 
     def _get_failed_tests(self):
-        return {test_id: test for test_id, test in self.tests.iteritems()
-                                  if self.test_data[test_id].get('result_state') in self._test_fail_states}
+        return OrderedDict([(test_id, test) for test_id, test in self.tests.iteritems()
+                                  if self.test_data[test_id].get('result_state') in self._test_fail_states])
 
     def _run_tests(self, failed_only=True):
+        self._first_failed_focused = False
         tests = self._get_failed_tests() if failed_only else self.tests
+
         for test_id, suite in tests.iteritems():
             self._run_test(test_id)
 
@@ -220,12 +228,12 @@ class TestRunner(object):
     def popup_close(self):
         self.main_loop.widget = self._popup_original
 
-    def test_listbox(self, choices):
+    def test_listbox(self, test_list):
         list_items = []
-        for choice in choices:
-            test_line = TestLine2(choice)
-            self.test_data[choice] = {'widget': test_line}
-            urwid.connect_signal(test_line, 'click', self.show_test_detail, choice)
+        for position, test_id in enumerate(test_list):
+            test_line = TestLine2(test_id)
+            self.test_data[test_id] = {'widget': test_line, 'position': position}
+            urwid.connect_signal(test_line, 'click', self.show_test_detail, test_id)
             list_items.append(urwid.AttrMap(test_line, None, focus_map='reversed'))
         return urwid.ListBox(urwid.SimpleFocusListWalker(list_items))
 
