@@ -4,6 +4,7 @@
 import sys
 import urwid
 import logging
+import thread
 from collections import OrderedDict
 import unittest
 from StringIO import StringIO
@@ -243,8 +244,12 @@ class TestRunner(object):
         elif key == 'shift r':
             self._run_tests()
         elif key == 'r':
-            self._run_tests(failed_only=True)
+            thread.start_new_thread(
+                self._run_tests, (True, )
+            )
 
+    def set_test_list(self, test_list):
+        self._test_list = test_list
 
 if __name__ == '__main__':
     logging.basicConfig()
