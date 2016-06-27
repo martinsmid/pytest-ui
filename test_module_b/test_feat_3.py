@@ -8,9 +8,11 @@ class TestE(unittest.TestCase):
 
     def test_feat_1_case_1(self):
         time.sleep(0.5)
+        self.fail('Artificial fail one')
 
     def test_feat_1_case_2(self):
         time.sleep(0.5)
+        self.fail('Artificial fail two')
 
     def test_feat_1_case_3(self):
         time.sleep(0.5)
