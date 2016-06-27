@@ -81,7 +81,7 @@ class TestResultWindow(urwid.WidgetWrap):
         super(TestResultWindow, self).__init__(urwid.LineBox(urwid.Filler(urwid.Text(text))))
 
     def keypress(self, size, key):
-        if key == 'esc':
+        if key == 'q':
             self.escape_method()
 
         return None
@@ -98,10 +98,10 @@ class TestResultWindow2(urwid.LineBox):
         super(TestResultWindow2, self).__init__(urwid.Filler(urwid.Text(text)))
 
     def keypress(self, size, key):
-        if key == 'esc':
+        if key == 'q':
             self.escape_method()
 
-        return key
+        return None
 
     def selectable(self):
         return True
@@ -132,6 +132,7 @@ class TestRunner(object):
 
     def _init_main_screen(self):
         self.w_filter_edit = urwid.AttrMap(urwid.Edit('Filter '), 'edit', 'edit_focus')
+        urwid.connect_signal(self.w_filter_edit.original_widget, 'change', self.on_filter_change)
         self._init_test_listbox()
         self.w_main = urwid.Padding(
             urwid.Pile(
@@ -148,6 +149,9 @@ class TestRunner(object):
 
     def _init_test_listbox(self):
         self.w_test_listbox = self.test_listbox(self.tests.keys())
+
+    def on_filter_change(self, filter_widget, key):
+        print filter_widget
 
     def run(self):
         self.main_loop = urwid.MainLoop(self.w_main, palette=self.palette,
