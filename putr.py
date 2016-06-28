@@ -126,6 +126,7 @@ class TestRunner(object):
         loader = unittest.TestLoader()
         top_suite = loader.discover('.')
         self.tests = get_tests(top_suite)
+        self.current_test_list = self.tests
         self.test_data = {}
         self._init_main_screen()
         self.main_loop = None
@@ -148,10 +149,18 @@ class TestRunner(object):
         )
 
     def _init_test_listbox(self):
-        self.w_test_listbox = self.test_listbox(self.tests.keys())
+        self.w_test_listbox = self.test_listbox(self.current_test_list.keys())
 
     def on_filter_change(self, filter_widget, key):
-        print filter_widget
+        filter_value = filter_widget.get_edit_text()
+        self.w_main.original_widget.widget_list[0].set_text(filter_value)
+
+        self.current_test_list = {k: v for k, v in self.tests.iteritems() if filter_value in k}
+        # import pdb; pdb.set_trace()
+        self.w_main.original_widget.widget_list[4] = self.test_listbox(self.current_test_list.keys())
+        self.w_main.original_widget._invalidate()
+        # self.main_loop.widget._invalidate()
+        # self.main_loop.draw_screen()
 
     def run(self):
         self.main_loop = urwid.MainLoop(self.w_main, palette=self.palette,
