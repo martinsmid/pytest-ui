@@ -151,12 +151,8 @@ class TestRunner(object):
     def _init_test_listbox(self):
         self.w_test_listbox = self.test_listbox(self.current_test_list.keys())
 
-    def on_filter_change(self, filter_widget, key):
-        filter_value = filter_widget.get_edit_text()
-        self.w_main.original_widget.widget_list[0].set_text(filter_value)
-
+    def on_filter_change(self, filter_widget, filter_value):
         self.current_test_list = {k: v for k, v in self.tests.iteritems() if filter_value in k}
-        # import pdb; pdb.set_trace()
         self.w_main.original_widget.widget_list[4] = self.test_listbox(self.current_test_list.keys())
         self.w_main.original_widget._invalidate()
         # self.main_loop.widget._invalidate()
@@ -217,13 +213,15 @@ class TestRunner(object):
         # self.w_main._invalidate()
         self.main_loop.draw_screen()
 
-    def _get_failed_tests(self):
-        return OrderedDict([(test_id, test) for test_id, test in self.tests.iteritems()
+    def _get_tests(self, failed_only=True, filtered=True):
+        tests = self.current_test_list if filtered else self.tests
+
+        return OrderedDict([(test_id, test) for test_id, test in tests.iteritems()
                                   if self.test_data[test_id].get('result_state') in self._test_fail_states])
 
-    def _run_tests(self, failed_only=True):
+    def _run_tests(self, failed_only=True, filtered=True):
         self._first_failed_focused = False
-        tests = self._get_failed_tests() if failed_only else self.tests
+        tests = self._get_tests(failed_only, filtered)
 
         for test_id, suite in tests.iteritems():
             self._run_test(test_id)
