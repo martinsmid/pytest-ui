@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+import re
 import sys
 import urwid
 import logging
@@ -152,7 +153,12 @@ class TestRunner(object):
         self.w_test_listbox = self.test_listbox(self.current_test_list.keys())
 
     def on_filter_change(self, filter_widget, filter_value):
-        self.current_test_list = {k: v for k, v in self.tests.iteritems() if filter_value in k}
+        regexp_str = '.*'.join(list(iter(filter_value)))
+        re_filter = re.compile(regexp_str, re.UNICODE + re.IGNORECASE)
+
+
+        self.w_main.original_widget[0].set_text(regexp_str)
+        self.current_test_list = {k: v for k, v in self.tests.iteritems() if re_filter.findall(k)}
         self.w_main.original_widget.widget_list[4] = self.test_listbox(self.current_test_list.keys())
         self.w_main.original_widget._invalidate()
         # self.main_loop.widget._invalidate()
