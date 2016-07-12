@@ -11,6 +11,9 @@ import unittest
 from StringIO import StringIO
 
 def result_state(test_result):
+    if not test_result:
+        return ''
+
     if test_result.skipped:
         return 'skipped'
     elif test_result.failures:
@@ -49,9 +52,8 @@ class TestLine2(urwid.Widget):
 
     signals = ["click"]
 
-    def __init__(self, test_id, *args, **kwargs):
-        self.test_id = test_id
-        self.test_result = ' '
+    def __init__(self, test_data, *args, **kwargs):
+        self.test_data = test_data
         self._is_running = False
         super(TestLine2, self).__init__(*args, **kwargs)
 
@@ -59,12 +61,14 @@ class TestLine2(urwid.Widget):
         return 1
 
     def render(self, size, focus=False):
+        result_state_str = result_state(self.test_data.get('result'))
+        test_id = self.test_data['suite'].id()
         (maxcol,) = size
         attr = []
         main_attr = ('running', maxcol - 13) if self._is_running else (None, maxcol - 13)
-        state_attr = (self.test_result.lower(), 10)
+        state_attr = (result_state_str, 10)
 
-        return urwid.TextCanvas(['{} [{:10}]'.format(self.test_id.ljust(maxcol - 13), self.test_result.lower()[:10])],
+        return urwid.TextCanvas(['{} [{:10}]'.format(test_id.ljust(maxcol - 13), result_state_str[:10])],
             maxcol=maxcol, attr=[[main_attr, (None, 2), state_attr, (None, 1)]])
 
     def keypress(self, size, key):
@@ -116,7 +120,7 @@ class TestRunner(object):
         ('failed',      'light red',  '',             '', '',     '#b00'),
         ('error',       'brown',      '',             '', '#f88', '#b00'),
         ('skipped',     'light gray', '',             '', '#f88', '#b00'),
-        ('running',     'yellow',     '',             '', '',     ''),
+        ('running',     'yellow',     'dark magenta',      '', '',     ''),
         ('ok',          'dark green', '',             '', '',     ''),
     ]
 
@@ -127,8 +131,8 @@ class TestRunner(object):
         loader = unittest.TestLoader()
         top_suite = loader.discover('.')
         self.tests = get_tests(top_suite)
+        self.test_data = {test_id: {'suite': test} for test_id, test in self.tests.iteritems()}
         self.current_test_list = self.tests
-        self.test_data = {}
         self._init_main_screen()
         self.main_loop = None
 
@@ -153,11 +157,9 @@ class TestRunner(object):
         self.w_test_listbox = self.test_listbox(self.current_test_list.keys())
 
     def on_filter_change(self, filter_widget, filter_value):
-        regexp_str = '.*'.join(list(iter(filter_value)))
+        regexp_str = '.*?'.join(list(iter(filter_value)))
         re_filter = re.compile(regexp_str, re.UNICODE + re.IGNORECASE)
 
-
-        self.w_main.original_widget[0].set_text(regexp_str)
         self.current_test_list = {k: v for k, v in self.tests.iteritems() if re_filter.findall(k)}
         self.w_main.original_widget.widget_list[4] = self.test_listbox(self.current_test_list.keys())
         self.w_main.original_widget._invalidate()
@@ -186,6 +188,7 @@ class TestRunner(object):
 
         self.test_data[test_id]['widget']._is_running = True
         self.test_data[test_id]['widget']._invalidate()
+
         # self.w_test_listbox._invalidate()
         # self.w_main._invalidate()
         self.main_loop.draw_screen()
@@ -197,12 +200,12 @@ class TestRunner(object):
 
         suite = self.tests[test_id]
         result = unittest.TextTestRunner(stream=sys.stdout, verbosity=2).run(suite)
+        self.test_data[test_id]['result'] = result
         result_state_str = result_state(result)
         if result_state_str in ['failed', 'error'] and not self._first_failed_focused:
             self.w_test_listbox.set_focus(self._get_test_position(test_id))
             self._first_failed_focused = True
 
-        self.test_data[test_id]['widget'].test_result = result_state_str
         self.test_data[test_id].update({
             'output': sys.stdout.getvalue(),
             'result_state': result_state_str,
@@ -223,7 +226,9 @@ class TestRunner(object):
         tests = self.current_test_list if filtered else self.tests
 
         return OrderedDict([(test_id, test) for test_id, test in tests.iteritems()
-                                  if self.test_data[test_id].get('result_state') in self._test_fail_states])
+                                  if not failed_only
+                                      or failed_only
+                                      and self.test_data[test_id].get('result_state') in self._test_fail_states])
 
     def _run_tests(self, failed_only=True, filtered=True):
         self._first_failed_focused = False
@@ -249,8 +254,13 @@ class TestRunner(object):
     def test_listbox(self, test_list):
         list_items = []
         for position, test_id in enumerate(test_list):
-            test_line = TestLine2(test_id)
-            self.test_data[test_id] = {'widget': test_line, 'position': position}
+            self.test_data[test_id].update({
+                'id': test_id,
+                'widget': None,
+                'position': position,
+            })
+            test_line = TestLine2(self.test_data[test_id])
+            self.test_data[test_id]['widget'] = test_line
             urwid.connect_signal(test_line, 'click', self.show_test_detail, test_id)
             list_items.append(urwid.AttrMap(test_line, None, focus_map='reversed'))
         return urwid.ListBox(urwid.SimpleFocusListWalker(list_items))
@@ -258,8 +268,10 @@ class TestRunner(object):
     def unhandled_keypress(self, key):
         if key in ('q', 'Q'):
             exit_program(None)
-        elif key == 'shift r':
-            self._run_tests()
+        elif key == 'R':
+            thread.start_new_thread(
+                self._run_tests, (False, )
+            )
         elif key == 'r':
             thread.start_new_thread(
                 self._run_tests, (True, )
