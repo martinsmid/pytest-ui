@@ -37,16 +37,7 @@ def exit_program(button):
     raise urwid.ExitMainLoop()
 
 
-class TestLine(urwid.Columns):
-
-    def __init__(self, text):
-        self._test_result = ' '
-
-        self.w_text = urwid.Text(text)
-        self.w_state = urwid.Text(['[', (self._test_result, self._test_result.upper()[0]), ']'])
-        super(TestLine, self).__init__([self.w_text, self.w_state])
-
-class TestLine2(urwid.Widget):
+class TestLine(urwid.Widget):
     _sizing = frozenset(['flow'])
     _selectable = True
 
@@ -55,7 +46,7 @@ class TestLine2(urwid.Widget):
     def __init__(self, test_data, *args, **kwargs):
         self.test_data = test_data
         self._is_running = False
-        super(TestLine2, self).__init__(*args, **kwargs)
+        super(TestLine, self).__init__(*args, **kwargs)
 
     def rows(self, size, focus=False):
         return 1
@@ -78,24 +69,7 @@ class TestLine2(urwid.Widget):
         return key
 
 
-class TestResultWindow(urwid.WidgetWrap):
-    _sizing = frozenset(['box', 'flow', 'fixed'])
-
-    def __init__(self, text, escape_method):
-        self.escape_method = escape_method
-        super(TestResultWindow, self).__init__(urwid.LineBox(urwid.Filler(urwid.Text(text))))
-
-    def keypress(self, size, key):
-        if key == 'q':
-            self.escape_method()
-
-        return None
-
-    def selectable(self):
-        return True
-
-
-class TestResultWindow2(urwid.LineBox):
+class TestResultWindow(urwid.LineBox):
     _sizing = frozenset(['box'])
 
     def __init__(self, text, escape_method):
@@ -106,7 +80,7 @@ class TestResultWindow2(urwid.LineBox):
             urwid.AttrMap(urwid.Text(line), None, focus_map='reversed') for line in lines
         ]
 
-        super(TestResultWindow2, self).__init__(
+        super(TestResultWindow, self).__init__(
             urwid.ListBox(
                 urwid.SimpleFocusListWalker(list_items)
             )
@@ -258,7 +232,7 @@ class TestRunner(object):
     def show_test_detail(self, widget, choice):
         # if test has already been run
         if 'output' in self.test_data[choice]:
-            result_window = TestResultWindow2(self.test_data[choice]['output'], self.popup_close)
+            result_window = TestResultWindow(self.test_data[choice]['output'], self.popup_close)
             self.popup(result_window)
             result_window.set_focus(0)
 
@@ -273,7 +247,7 @@ class TestRunner(object):
                 'widget': None,
                 'position': position,
             })
-            test_line = TestLine2(self.test_data[test_id])
+            test_line = TestLine(self.test_data[test_id])
             self.test_data[test_id]['widget'] = test_line
             urwid.connect_signal(test_line, 'click', self.show_test_detail, test_id)
             list_items.append(urwid.AttrMap(test_line, None, focus_map='reversed'))
