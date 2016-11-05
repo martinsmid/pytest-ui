@@ -100,17 +100,31 @@ class TestResultWindow2(urwid.LineBox):
 
     def __init__(self, text, escape_method):
         self.escape_method = escape_method
-        super(TestResultWindow2, self).__init__(urwid.Filler(urwid.Text(text)))
+
+        lines = text.split('\n')
+        list_items = [
+            urwid.AttrMap(urwid.Text(line), None, focus_map='reversed') for line in lines
+        ]
+
+        super(TestResultWindow2, self).__init__(
+            urwid.ListBox(
+                urwid.SimpleFocusListWalker(list_items)
+            )
+        )
 
     def keypress(self, size, key):
         if key == 'q':
             self.escape_method()
+
+        self._original_widget.keypress(size, key)
 
         return None
 
     def selectable(self):
         return True
 
+    def set_focus(self, item):
+        self._original_widget.set_focus(item)
 
 class TestRunner(object):
     palette = [
@@ -244,9 +258,9 @@ class TestRunner(object):
     def show_test_detail(self, widget, choice):
         # if test has already been run
         if 'output' in self.test_data[choice]:
-            self.popup(
-                TestResultWindow2(self.test_data[choice]['output'], self.popup_close)
-            )
+            result_window = TestResultWindow2(self.test_data[choice]['output'], self.popup_close)
+            self.popup(result_window)
+            result_window.set_focus(0)
 
     def popup_close(self):
         self.main_loop.widget = self._popup_original
