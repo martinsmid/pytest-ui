@@ -4,7 +4,7 @@
 import re
 import sys
 import urwid
-import logging
+import logging_tools
 import thread
 from collections import OrderedDict
 import unittest
@@ -269,6 +269,6 @@ class TestRunner(object):
         self._test_list = test_list
 
 if __name__ == '__main__':
-    logging.basicConfig()
+    logging_tools.configure()
     runner = TestRunner()
     runner.run()
