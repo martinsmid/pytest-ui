@@ -9,9 +9,18 @@ def configure():
         'handlers': {
             'default': {
                 'class': 'logging.NullHandler'
+            },
+            'logfile': {
+                'class': 'logging.FileHandler',
+                'filename': 'putr.log',
+                'mode': 'w+',
             }
         },
         'loggers': {
+            '__main__': {
+                'handlers': ['logfile'],
+                'level': 'DEBUG',
+            }
 
         },
         'root': {

@@ -4,11 +4,16 @@
 import re
 import sys
 import urwid
+import logging
 import logging_tools
 import thread
 from collections import OrderedDict
 import unittest
 from StringIO import StringIO
+
+
+logger = logging.getLogger(__name__)
+
 
 def result_state(test_result):
     if not test_result:
@@ -115,16 +120,36 @@ class TestRunner(object):
     _test_fail_states = ['failed', 'error', None]
 
     def __init__(self):
+        logger.info('Runner init')
         urwid.set_encoding("UTF-8")
+        self.init_tests()
+        self.init_main_screen()
+        self.main_loop = None
+        self._running_tests = False
+
+    def init_tests(self):
         loader = unittest.TestLoader()
         top_suite = loader.discover('.')
         self.tests = get_tests(top_suite)
         self.test_data = {test_id: {'suite': test} for test_id, test in self.tests.iteritems()}
         self.current_test_list = self.tests
-        self._init_main_screen()
-        self.main_loop = None
+        logger.debug('Inited tests %s', self.test_data)
+        self._init_test_listbox()
 
-    def _init_main_screen(self):
+    def reload_tests(self):
+        test_modules = {t.__module__ for id, t in self.tests.items()}
+        for mod_name in test_modules:
+            logger.debug('reloading %s', mod_name)
+            # for mod in sys.modules.keys():
+            #     logger.debug(mod)
+            if mod_name in sys.modules:
+                # del sys.modules[mod_name]
+                module = sys.modules[mod_name]
+                reload(module)
+            else:
+                logger.debug('module not found %s', mod_name)
+
+    def init_main_screen(self):
         self.w_filter_edit = urwid.AttrMap(urwid.Edit('Filter '), 'edit', 'edit_focus')
         urwid.connect_signal(self.w_filter_edit.original_widget, 'change', self.on_filter_change)
         self._init_test_listbox()
@@ -219,6 +244,8 @@ class TestRunner(object):
                                       and self.test_data[test_id].get('result_state') in self._test_fail_states])
 
     def _run_tests(self, failed_only=True, filtered=True):
+        self._running_tests = True
+        self.reload_tests()
         self._first_failed_focused = False
         tests = self._get_tests(failed_only, filtered)
 
@@ -228,6 +255,7 @@ class TestRunner(object):
         self.w_test_listbox._invalidate()
         self.w_main._invalidate()
         self.main_loop.draw_screen()
+        self._running_tests = False
 
     def show_test_detail(self, widget, choice):
         # if test has already been run
@@ -257,13 +285,15 @@ class TestRunner(object):
         if key in ('q', 'Q'):
             exit_program(None)
         elif key == 'R':
-            thread.start_new_thread(
-                self._run_tests, (False, )
-            )
+            if not self._running_tests:
+                thread.start_new_thread(
+                    self._run_tests, (False, )
+                )
         elif key == 'r':
-            thread.start_new_thread(
-                self._run_tests, (True, )
-            )
+            if not self._running_tests:
+                thread.start_new_thread(
+                    self._run_tests, (True, )
+                )
 
     def set_test_list(self, test_list):
         self._test_list = test_list
