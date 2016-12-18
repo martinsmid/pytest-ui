@@ -284,6 +284,8 @@ class TestRunner(object):
     def unhandled_keypress(self, key):
         if key in ('q', 'Q'):
             exit_program(None)
+        elif key == '/':
+            self.w_main.original_widget.set_focus(2)
         elif key == 'R':
             if not self._running_tests:
                 thread.start_new_thread(
