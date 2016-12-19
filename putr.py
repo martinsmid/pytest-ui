@@ -10,9 +10,34 @@ import thread
 from collections import OrderedDict
 import unittest
 from StringIO import StringIO
-
+import __builtin__
 
 logger = logging.getLogger(__name__)
+
+
+class RollbackImporter:
+    def __init__(self):
+        "Creates an instance and installs as the global importer"
+        self.previousModules = sys.modules.copy()
+        self.realImport = __builtin__.__import__
+        __builtin__.__import__ = self._import
+        self.newModules = {}
+
+    def _import(self, name, globals=None, locals=None, fromlist=[], *args, **kwargs):
+        logger.debug('args: %s', args)
+        logger.debug('kwargs: %s', kwargs)
+        result = apply(self.realImport, (name, globals, locals, fromlist))
+        self.newModules[name] = 1
+        return result
+
+    def uninstall(self):
+        logger.debug('uninstalling modules')
+        for modname in self.newModules.keys():
+            logger.debug('modname: %s', modname)
+            if not self.previousModules.has_key(modname):
+                # Force reload when modname next imported
+                del(sys.modules[modname])
+        __builtin__.__import__ = self.realImport
 
 
 def result_state(test_result):
@@ -122,7 +147,10 @@ class TestRunner(object):
     def __init__(self):
         logger.info('Runner init')
         urwid.set_encoding("UTF-8")
+        self.rollbackImporter = RollbackImporter()
+
         self.init_tests()
+        self.init_test_data()
         self.init_main_screen()
         self.main_loop = None
         self._running_tests = False
@@ -131,23 +159,18 @@ class TestRunner(object):
         loader = unittest.TestLoader()
         top_suite = loader.discover('.')
         self.tests = get_tests(top_suite)
+
+    def init_test_data(self):
         self.test_data = {test_id: {'suite': test} for test_id, test in self.tests.iteritems()}
         self.current_test_list = self.tests
         logger.debug('Inited tests %s', self.test_data)
         self._init_test_listbox()
 
     def reload_tests(self):
-        test_modules = {t.__module__ for id, t in self.tests.items()}
-        for mod_name in test_modules:
-            logger.debug('reloading %s', mod_name)
-            # for mod in sys.modules.keys():
-            #     logger.debug(mod)
-            if mod_name in sys.modules:
-                # del sys.modules[mod_name]
-                module = sys.modules[mod_name]
-                reload(module)
-            else:
-                logger.debug('module not found %s', mod_name)
+        if self.rollbackImporter:
+            self.rollbackImporter.uninstall()
+        self.rollbackImporter = RollbackImporter()
+        self.init_tests()
 
     def init_main_screen(self):
         self.w_filter_edit = urwid.AttrMap(urwid.Edit('Filter '), 'edit', 'edit_focus')
