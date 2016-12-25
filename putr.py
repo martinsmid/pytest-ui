@@ -99,6 +99,26 @@ class TestLine(urwid.Widget):
         return key
 
 
+class StatusLine(urwid.Widget):
+    _sizing = frozenset(['flow'])
+
+    def __init__(self, status, *args, **kwargs):
+        super(StatusLine, self).__init__(*args, **kwargs)
+        self.status = status
+
+    def rows(self, size, focus=False):
+        return 1
+
+    def render(self, size, focus=False):
+        (maxcol,) = size
+
+        return urwid.TextCanvas(
+            ['Total: {} Filtered: {} Failed: {}'.format(self.status.total,
+                                                        self.status.filtered,
+                                                        self.status.failed)],
+            maxcol=maxcol)
+
+
 class TestResultWindow(urwid.LineBox):
     _sizing = frozenset(['box'])
 
@@ -140,6 +160,7 @@ class TestRunner(object):
         ('skipped',     'light gray', '',             '', '#f88', '#b00'),
         ('running',     'yellow',     'dark magenta',      '', '',     ''),
         ('ok',          'dark green', '',             '', '',     ''),
+        ('statusline',  'white',      'dark blue',    '', '',     ''),
     ]
 
     _test_fail_states = ['failed', 'error', None]
@@ -154,6 +175,18 @@ class TestRunner(object):
         self.init_main_screen()
         self.main_loop = None
         self._running_tests = False
+
+    @property
+    def filtered(self):
+        return len(self.current_test_list)
+
+    @property
+    def total(self):
+        return len(self.tests)
+
+    @property
+    def failed(self):
+        return len(self._get_tests(failed_only=True))
 
     def init_tests(self):
         loader = unittest.TestLoader()
@@ -174,18 +207,19 @@ class TestRunner(object):
 
     def init_main_screen(self):
         self.w_filter_edit = urwid.AttrMap(urwid.Edit('Filter '), 'edit', 'edit_focus')
+        self.w_status_line = urwid.AttrMap(StatusLine(self), 'statusline', '')
         urwid.connect_signal(self.w_filter_edit.original_widget, 'change', self.on_filter_change)
         self._init_test_listbox()
         self.w_main = urwid.Padding(
-            urwid.Pile(
-                [
-                 ('pack', urwid.Text(u'Python Urwid Test Runner', align='center')),
-                 ('pack', urwid.Divider()),
-                 ('pack', self.w_filter_edit),
-                 ('pack', urwid.Divider()),
-                 self.w_test_listbox
-                 ]
-            ),
+            urwid.Pile([
+                ('pack', urwid.Text(u'Python Urwid Test Runner', align='center')),
+                ('pack', urwid.Divider()),
+                ('pack', self.w_filter_edit),
+                ('pack', urwid.Divider()),
+                self.w_test_listbox,
+                ('pack', urwid.Divider()),
+                ('pack', self.w_status_line),
+            ]),
             left=2, right=2
         )
 
@@ -199,6 +233,7 @@ class TestRunner(object):
         self.current_test_list = {k: v for k, v in self.tests.iteritems() if re_filter.findall(k)}
         self.w_main.original_widget.widget_list[4] = self.test_listbox(self.current_test_list.keys())
         self.w_main.original_widget._invalidate()
+        self.w_status_line.original_widget._invalidate()
         # self.main_loop.widget._invalidate()
         # self.main_loop.draw_screen()
 
@@ -256,6 +291,7 @@ class TestRunner(object):
         self.test_data[test_id]['widget']._invalidate()
         # self.w_test_listbox._invalidate()
         # self.w_main._invalidate()
+        self.w_status_line.original_widget._invalidate()
         self.main_loop.draw_screen()
 
     def _get_tests(self, failed_only=True, filtered=True):
