@@ -165,11 +165,11 @@ class TestRunner(object):
 
     _test_fail_states = ['failed', 'error', None]
 
-    def __init__(self):
+    def __init__(self, path='.'):
         logger.info('Runner init')
         urwid.set_encoding("UTF-8")
         self.rollbackImporter = RollbackImporter()
-
+        self.path = path
         self.init_tests()
         self.init_test_data()
         self.init_main_screen()
@@ -190,7 +190,7 @@ class TestRunner(object):
 
     def init_tests(self):
         loader = unittest.TestLoader()
-        top_suite = loader.discover('.')
+        top_suite = loader.discover(self.path)
         self.tests = get_tests(top_suite)
 
     def init_test_data(self):
@@ -360,6 +360,7 @@ class TestRunner(object):
         self._test_list = test_list
 
 if __name__ == '__main__':
+    path = sys.argv[1] if len(sys.argv) - 1 else '.'
     logging_tools.configure()
-    runner = TestRunner()
+    runner = TestRunner(path)
     runner.run()
