@@ -175,7 +175,7 @@ class TestRunner(object):
 
     _test_fail_states = ['failed', 'error', None]
 
-    def __init__(self, , path='.', load_tests, runner='pytest'):
+    def __init__(self, path='.', load_tests=True, runner='pytest'):
         logger.info('Runner init')
         urwid.set_encoding("UTF-8")
 
@@ -218,7 +218,7 @@ class TestRunner(object):
 
     def init_tests_pytest(self):
         import pytest
-        pytest.main(['-s', '--collect-only'], plugins=[PutrPytestPlugin()])
+        pytest.main(['-s', '--collect-only', self.path], plugins=[PutrPytestPlugin()])
 
     def init_test_data(self):
         self.test_data = {test_id: {'suite': test} for test_id, test in self.tests.iteritems()}
