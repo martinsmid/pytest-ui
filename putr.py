@@ -175,7 +175,7 @@ class TestRunner(object):
 
     _test_fail_states = ['failed', 'error', None]
 
-    def __init__(self, load_tests, runner='pytest'):
+    def __init__(self, , path='.', load_tests, runner='pytest'):
         logger.info('Runner init')
         urwid.set_encoding("UTF-8")
 
@@ -183,6 +183,7 @@ class TestRunner(object):
         self.current_test_list = {}
         self.tests = {}
         self.runner = runner
+        self.path = path
 
         if load_tests:
             self.init_tests()
@@ -212,7 +213,7 @@ class TestRunner(object):
 
     def init_tests_unittest(self):
         loader = unittest.TestLoader()
-        top_suite = loader.discover('.')
+        top_suite = loader.discover(self.path)
         self.tests = get_tests(top_suite)
 
     def init_tests_pytest(self):
@@ -386,11 +387,12 @@ class TestRunner(object):
         self._test_list = test_list
 
 if __name__ == '__main__':
+    path = sys.argv[1] if len(sys.argv) - 1 else '.'
     logging_tools.configure()
     logger.info('Configured logging')
     # from logging_tree import printout
     # printout()
 
     # sys.exit(1)
-    runner = TestRunner(load_tests=True)
+    runner = TestRunner(path, load_tests=True)
     runner.run()
