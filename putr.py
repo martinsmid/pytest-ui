@@ -24,8 +24,8 @@ class RollbackImporter:
         self.newModules = {}
 
     def _import(self, name, globals=None, locals=None, fromlist=[], *args, **kwargs):
-        logger.debug('args: %s', args)
-        logger.debug('kwargs: %s', kwargs)
+        # logger.debug('args: %s', args)
+        # logger.debug('kwargs: %s', kwargs)
         result = apply(self.realImport, (name, globals, locals, fromlist))
         self.newModules[name] = 1
         return result
@@ -150,6 +150,16 @@ class TestResultWindow(urwid.LineBox):
     def set_focus(self, item):
         self._original_widget.set_focus(item)
 
+class PutrPytestPlugin(object):
+    def pytest_runtest_protocol(self, item, nextitem):
+        logger.debug('pytest_runtest_protocol %s %s', item, nextitem)
+        print 'pytest_runtest_protocol %s %s' % (item, nextitem)
+
+    def pytest_runtest_makereport(self, item, call):
+        logger.debug('pytest_runtest_makereport %s %s', item, call)
+        print 'pytest_runtest_makereport %s %s' % (item, call)
+
+
 class TestRunner(object):
     palette = [
         ('reversed',    '',           'dark gray'),
@@ -165,13 +175,19 @@ class TestRunner(object):
 
     _test_fail_states = ['failed', 'error', None]
 
-    def __init__(self):
+    def __init__(self, load_tests, runner='pytest'):
         logger.info('Runner init')
         urwid.set_encoding("UTF-8")
-        self.rollbackImporter = RollbackImporter()
 
-        self.init_tests()
-        self.init_test_data()
+        self.rollbackImporter = RollbackImporter()
+        self.current_test_list = {}
+        self.tests = {}
+        self.runner = runner
+
+        if load_tests:
+            self.init_tests()
+            self.init_test_data()
+
         self.init_main_screen()
         self.main_loop = None
         self._running_tests = False
@@ -189,9 +205,19 @@ class TestRunner(object):
         return len(self._get_tests(failed_only=True))
 
     def init_tests(self):
+        if self.runner == 'unittest':
+            self.init_tests_unittest()
+        elif self.runner == 'pytest':
+            self.init_tests_pytest()
+
+    def init_tests_unittest(self):
         loader = unittest.TestLoader()
         top_suite = loader.discover('.')
         self.tests = get_tests(top_suite)
+
+    def init_tests_pytest(self):
+        import pytest
+        pytest.main(['-s', '--collect-only'], plugins=[PutrPytestPlugin()])
 
     def init_test_data(self):
         self.test_data = {test_id: {'suite': test} for test_id, test in self.tests.iteritems()}
@@ -361,5 +387,10 @@ class TestRunner(object):
 
 if __name__ == '__main__':
     logging_tools.configure()
-    runner = TestRunner()
+    logger.info('Configured logging')
+    # from logging_tree import printout
+    # printout()
+
+    # sys.exit(1)
+    runner = TestRunner(load_tests=True)
     runner.run()
