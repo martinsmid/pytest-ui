@@ -4,6 +4,7 @@
 import re
 import sys
 import urwid
+import pytest
 import logging
 import logging_tools
 import thread
@@ -67,6 +68,12 @@ def exit_program(button):
     raise urwid.ExitMainLoop()
 
 
+def get_test_id(test):
+    if hasattr(test, 'id'):
+        return test.id()
+    elif hasattr(test, 'nodeid'):
+        return test.nodeid.replace('/', '.')
+
 class TestLine(urwid.Widget):
     _sizing = frozenset(['flow'])
     _selectable = True
@@ -83,7 +90,7 @@ class TestLine(urwid.Widget):
 
     def render(self, size, focus=False):
         result_state_str = result_state(self.test_data.get('result'))
-        test_id = self.test_data['suite'].id()
+        test_id = get_test_id(self.test_data['suite'])
         (maxcol,) = size
         attr = []
         main_attr = ('running', maxcol - 13) if self._is_running else (None, maxcol - 13)
@@ -151,13 +158,21 @@ class TestResultWindow(urwid.LineBox):
         self._original_widget.set_focus(item)
 
 class PutrPytestPlugin(object):
+    def __init__(self, ui):
+        self.ui = ui
+
     def pytest_runtest_protocol(self, item, nextitem):
         logger.debug('pytest_runtest_protocol %s %s', item, nextitem)
-        print 'pytest_runtest_protocol %s %s' % (item, nextitem)
 
     def pytest_runtest_makereport(self, item, call):
         logger.debug('pytest_runtest_makereport %s %s', item, call)
-        print 'pytest_runtest_makereport %s %s' % (item, call)
+
+    def pytest_itemcollected(self, item):
+        logger.debug('pytest_itemcollected %s', item)
+        self.ui.add_test(item)
+
+    def pytest_collectstart(self, collector):
+        logger.debug('pytest_collectstart %s', collector)
 
 
 class TestRunner(object):
@@ -179,7 +194,7 @@ class TestRunner(object):
         logger.info('Runner init')
         urwid.set_encoding("UTF-8")
 
-        self.rollbackImporter = RollbackImporter()
+        # self.rollbackImporter = RollbackImporter()
         self.current_test_list = {}
         self.tests = {}
         self.runner = runner
@@ -217,14 +232,20 @@ class TestRunner(object):
         self.tests = get_tests(top_suite)
 
     def init_tests_pytest(self):
-        import pytest
-        pytest.main(['-s', '--collect-only', self.path], plugins=[PutrPytestPlugin()])
+        pytest.main(['-s', '--collect-only', self.path], plugins=[PutrPytestPlugin(self)])
 
     def init_test_data(self):
         self.test_data = {test_id: {'suite': test} for test_id, test in self.tests.iteritems()}
         self.current_test_list = self.tests
         logger.debug('Inited tests %s', self.test_data)
         self._init_test_listbox()
+
+    def add_test(self, item):
+        # import pdb; pdb.set_trace()
+        if item.nodeid in self.tests:
+            logging.warn('Duplicate test id collected %s', item.nodeid)
+
+        self.tests[item.nodeid] = item
 
     def reload_tests(self):
         if self.rollbackImporter:
@@ -389,10 +410,6 @@ class TestRunner(object):
 if __name__ == '__main__':
     path = sys.argv[1] if len(sys.argv) - 1 else '.'
     logging_tools.configure()
-    logger.info('Configured logging')
-    # from logging_tree import printout
-    # printout()
-
-    # sys.exit(1)
+    logger.debug('Configured logging')
     runner = TestRunner(path, load_tests=True)
     runner.run()
