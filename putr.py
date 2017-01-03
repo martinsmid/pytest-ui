@@ -158,8 +158,9 @@ class TestResultWindow(urwid.LineBox):
         self._original_widget.set_focus(item)
 
 class PutrPytestPlugin(object):
-    def __init__(self, ui):
+    def __init__(self, ui, test_list=None):
         self.ui = ui
+        self.test_list = test_list
 
     def pytest_runtest_protocol(self, item, nextitem):
         logger.debug('pytest_runtest_protocol %s %s', item, nextitem)
@@ -173,6 +174,28 @@ class PutrPytestPlugin(object):
 
     def pytest_collectstart(self, collector):
         logger.debug('pytest_collectstart %s', collector)
+
+    def pytest_runtest_makereport(self, item, call):
+        logger.debug('pytest_runtest_makereport %s %s', item, call)
+
+    def pytest_collection_modifyitems(self, session, config, items):
+        logger.debug('pytest_collection_modifyitems %s %s %s', session, config, items)
+        def wanted(test):
+            return get_test_id(test.nodeid) in wanted.test_keys
+        wanted.test_keys = self.test_list.keys()
+
+        items[:] = filter(wanted, items)
+        logger.debug('Filtered items %s', items)
+
+    def pytest_ignore_collect(self, path, config):
+        """ Return True to ignore the test """
+        # logger.debug('pytest_ignore_collect %s %s', path, config)
+        # logger.debug('path %s', type(path))
+        return False
+        if self.test_list and path not in self.test_list.keys():
+            logger.debug('Ignoring')
+            return True
+
 
 
 class TestRunner(object):
@@ -232,7 +255,7 @@ class TestRunner(object):
         self.tests = get_tests(top_suite)
 
     def init_tests_pytest(self):
-        pytest.main(['-s', '--collect-only', self.path], plugins=[PutrPytestPlugin(self)])
+        pytest.main(['-q', '-s', '--collect-only', self.path], plugins=[PutrPytestPlugin(self)])
 
     def init_test_data(self):
         self.test_data = {test_id: {'suite': test} for test_id, test in self.tests.iteritems()}
@@ -248,9 +271,10 @@ class TestRunner(object):
         self.tests[item.nodeid] = item
 
     def reload_tests(self):
-        if self.rollbackImporter:
-            self.rollbackImporter.uninstall()
-        self.rollbackImporter = RollbackImporter()
+        if self.runner == 'unittest':
+            if self.rollbackImporter:
+                self.rollbackImporter.uninstall()
+            self.rollbackImporter = RollbackImporter()
         self.init_tests()
 
     def init_main_screen(self):
@@ -275,10 +299,12 @@ class TestRunner(object):
         self.w_test_listbox = self.test_listbox(self.current_test_list.keys())
 
     def on_filter_change(self, filter_widget, filter_value):
-        regexp_str = '.*?'.join(list(iter(filter_value)))
+        regexp_str = '.*?'.join(list(iter(
+            filter_value.replace('.', '\.').replace(r'\\', '\\\\')
+        )))
         re_filter = re.compile(regexp_str, re.UNICODE + re.IGNORECASE)
-
         self.current_test_list = {k: v for k, v in self.tests.iteritems() if re_filter.findall(k)}
+        matched_key = self.current_test_list.keys()[0]
         self.w_main.original_widget.widget_list[4] = self.test_listbox(self.current_test_list.keys())
         self.w_main.original_widget._invalidate()
         self.w_status_line.original_widget._invalidate()
@@ -352,17 +378,25 @@ class TestRunner(object):
 
     def _run_tests(self, failed_only=True, filtered=True):
         self._running_tests = True
-        self.reload_tests()
-        self._first_failed_focused = False
-        tests = self._get_tests(failed_only, filtered)
+        if self.runner == 'unittest':
+            self.reload_tests()
+            self._first_failed_focused = False
+            tests = self._get_tests(failed_only, filtered)
 
-        for test_id, suite in tests.iteritems():
-            self._run_test(test_id)
+            for test_id, suite in tests.iteritems():
+                self._run_test(test_id)
 
-        self.w_test_listbox._invalidate()
-        self.w_main._invalidate()
-        self.main_loop.draw_screen()
+            self.w_test_listbox._invalidate()
+            self.w_main._invalidate()
+            self.main_loop.draw_screen()
+        elif self.runner == 'pytest':
+            self._run_tests_pytest(failed_only, filtered)
+
         self._running_tests = False
+
+    def _run_tests_pytest(self, failed_only=True, filtered=True):
+        pytest.main(['-q', '-s', self.path],
+            plugins=[PutrPytestPlugin(self, self._get_tests(failed_only, filtered))])
 
     def show_test_detail(self, widget, choice):
         # if test has already been run
