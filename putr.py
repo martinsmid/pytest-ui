@@ -71,12 +71,11 @@ class TestLine(urwid.Widget):
         return 1
 
     def render(self, size, focus=False):
-        result_state_str = self.test_data.get('result_state')
+        result_state_str = self.test_data.get('result_state', '')
         (maxcol,) = size
         attr = []
         main_attr = ('running', maxcol - 13) if self._is_running else (None, maxcol - 13)
         state_attr = (result_state_str, 10)
-
         return urwid.TextCanvas(['{} [{:10}]'.format(self.test_data['id'].ljust(maxcol - 13), result_state_str[:10])],
             maxcol=maxcol, attr=[[main_attr, (None, 2), state_attr, (None, 1)]])
 
@@ -102,9 +101,9 @@ class StatusLine(urwid.Widget):
 
         stats = self.runner.get_test_stats()
         return urwid.TextCanvas(
-            ['Total: {} Filtered: {} Failed: {}'.format(stats.total,
-                                                        stats.filtered,
-                                                        stats.failed)],
+            ['Total: {} Filtered: {} Failed: {}'.format(stats['total'],
+                                                        stats['filtered'],
+                                                        stats['failed'])],
             maxcol=maxcol)
 
 
@@ -213,6 +212,8 @@ class Runner(object):
 
             if self.is_test_filtered(test):
                 res['filtered'] += 1
+
+        return res
 
     def _get_tests(self, failed_only=True, filtered=True):
         tests = self.ui.current_test_list if filtered else self.tests
