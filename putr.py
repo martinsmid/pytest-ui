@@ -72,6 +72,7 @@ class TestLine(urwid.Widget):
 
     def render(self, size, focus=False):
         result_state_str = self.test_data.get('result_state', '')
+        logger.debug('result_state_str %s', result_state_str)
         (maxcol,) = size
         attr = []
         main_attr = ('running', maxcol - 13) if self._is_running else (None, maxcol - 13)
@@ -181,6 +182,7 @@ class Runner(object):
             self.init_test_data()
 
     def set_test_result(self, test_id, result, output='TODO'):
+        logger.debug('result %s', result)
         self.test_data[test_id].update({
             'result': result,
             'output': output,
@@ -246,7 +248,6 @@ class UnittestRunner(Runner):
 
     def run_tests(self, failed_only=True, filtered=True):
         self.reload_tests()
-        self._first_failed_focused = False
         tests = self._get_tests(failed_only, filtered)
 
         for test_id, suite in tests.iteritems():
@@ -291,9 +292,9 @@ class PytestRunner(Runner):
         if not callinfo:
             return ''
         elif not callinfo.excinfo:
-            return 'passed'
+            return 'ok'
         else:
-            return 'failed or skipped'
+            return 'failed'
 
         return 'ok'
 
@@ -320,6 +321,7 @@ class TestRunnerUI(object):
         self.re_filter = None
         self.runner = runner
         self.runner.ui = self
+        self._first_failed_focused = False
 
         self.init_main_screen()
         self._running_tests = False
@@ -349,8 +351,8 @@ class TestRunnerUI(object):
             left=2, right=2
         )
 
-    def on_testlist_change(self):
-        self.init_test_listbox()
+    # def on_testlist_change(self):
+    #     self.init_test_listbox()
 
     def init_test_listbox(self):
         self.w_test_listbox = self.test_listbox(self.current_test_list.keys())
@@ -396,7 +398,7 @@ class TestRunnerUI(object):
 
     def run_tests(self, failed_only=True, filtered=True):
         self._running_tests = True
-
+        self._first_failed_focused = False
         self.runner.run_tests(failed_only, filtered)
 
         self.w_test_listbox._invalidate()
@@ -436,11 +438,17 @@ class TestRunnerUI(object):
         self.main_loop.draw_screen()
 
     def update_test_result(self, test_id):
-        test_result = self.runner.test_data[test_id]
-        result_state_str = self.runner.result_state(test_result)
+        test_data = self.runner.test_data[test_id]
+        result_state_str = test_data.get('result_state')
+        self.test_data[test_id]['result_state'] = result_state_str
+        logger.debug('result_state_str %s', result_state_str)
         if result_state_str in ['failed', 'error'] and not self._first_failed_focused:
             self.w_test_listbox.set_focus(self._get_test_position(test_id))
             self._first_failed_focused = True
+
+        self.test_data[test_id]['widget']._invalidate()
+        self.w_status_line.original_widget._invalidate()
+        self.main_loop.draw_screen()
 
     def show_test_detail(self, widget, test_id):
         # if test has already been run
@@ -455,10 +463,12 @@ class TestRunnerUI(object):
     def test_listbox(self, test_list):
         list_items = []
         for position, test_id in enumerate(test_list):
+            result_state_str = self.runner.test_data.get('result_state', '')
             self.test_data[test_id].update({
                 'widget': None,
                 'position': position,
-                'id': test_id
+                'id': test_id,
+                'result_state': result_state_str
             })
             test_line = TestLine(self.test_data[test_id])
             self.test_data[test_id]['widget'] = test_line
@@ -476,7 +486,7 @@ class TestRunnerUI(object):
                 thread.start_new_thread(
                     self.run_tests, (False, )
                 )
-        elif key == 'r':
+        elif key == 'r' or key == 'F5':
             if not self._running_tests:
                 thread.start_new_thread(
                     self.run_tests, (True, )
