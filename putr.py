@@ -317,6 +317,7 @@ class TestRunnerUI(object):
         urwid.set_encoding("UTF-8")
 
         self.main_loop = None
+        self.w_main = None
         self.test_data = defaultdict(dict)
         self.re_filter = None
         self.runner = runner
@@ -356,6 +357,9 @@ class TestRunnerUI(object):
 
     def init_test_listbox(self):
         self.w_test_listbox = self.test_listbox(self.current_test_list.keys())
+        if self.w_main:
+            self.w_main.original_widget.widget_list[4] = self.w_test_listbox
+            self.w_main.original_widget._invalidate()
 
     @property
     def current_test_list(self):
@@ -374,7 +378,7 @@ class TestRunnerUI(object):
             )))
             self.re_filter = re.compile(regexp_str, re.UNICODE + re.IGNORECASE)
 
-        self.w_main.original_widget.widget_list[4] = self.test_listbox(self.current_test_list.keys())
+        self.init_test_listbox()
         self.w_main.original_widget._invalidate()
         self.w_status_line.original_widget._invalidate()
         # self.main_loop.widget._invalidate()
@@ -447,7 +451,10 @@ class TestRunnerUI(object):
             self._first_failed_focused = True
 
         self.test_data[test_id]['widget']._invalidate()
+        self.test_data[test_id]['lw_widget']._invalidate()
+        # self.w_test_listbox._invalidate()
         self.w_status_line.original_widget._invalidate()
+
         self.main_loop.draw_screen()
 
     def show_test_detail(self, widget, test_id):
@@ -460,20 +467,27 @@ class TestRunnerUI(object):
     def popup_close(self):
         self.main_loop.widget = self._popup_original
 
+    def get_list_item(self, test_id, position):
+        result_state_str = self.runner.test_data[test_id].get('result_state', '')
+        self.test_data[test_id].update({
+            'widget': None,
+            'lw_widget': None,
+            'position': position,
+            'id': test_id,
+            'result_state': result_state_str
+        })
+        test_line = TestLine(self.test_data[test_id])
+        self.test_data[test_id]['widget'] = test_line
+        urwid.connect_signal(test_line, 'click', self.show_test_detail, test_id)
+        test_line_attr = urwid.AttrMap(test_line, None, focus_map='reversed')
+        self.test_data[test_id]['lw_widget'] = test_line_attr
+        return test_line_attr
+
     def test_listbox(self, test_list):
         list_items = []
         for position, test_id in enumerate(test_list):
-            result_state_str = self.runner.test_data.get('result_state', '')
-            self.test_data[test_id].update({
-                'widget': None,
-                'position': position,
-                'id': test_id,
-                'result_state': result_state_str
-            })
-            test_line = TestLine(self.test_data[test_id])
-            self.test_data[test_id]['widget'] = test_line
-            urwid.connect_signal(test_line, 'click', self.show_test_detail, test_id)
-            list_items.append(urwid.AttrMap(test_line, None, focus_map='reversed'))
+            test_line_attr = self.get_list_item(test_id, position)
+            list_items.append(test_line_attr)
         return urwid.ListBox(urwid.SimpleFocusListWalker(list_items))
 
     def unhandled_keypress(self, key):
