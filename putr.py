@@ -158,7 +158,10 @@ class PutrPytestPlugin(object):
         outcome = yield
         result = outcome.get_result()
         logger.debug('report %s: %s', self.runner.get_test_id(item), result)
-        if call.when == 'call':
+        logger.debug('result.capstdout %s', result.capstdout)
+        logger.debug('result.capstderr %s', result.capstderr)
+        if (call.when == 'setup' and result.outcome == 'skipped'
+            or call.when == 'call'):
             self.runner.set_test_result(self.runner.get_test_id(item), result, result.capstdout + result.capstderr)
 
         logger.debug('pytest_runtest_makereport %s %s', item, call)
@@ -505,7 +508,7 @@ class TestRunnerUI(object):
                 thread.start_new_thread(
                     self.run_tests, (False, )
                 )
-        elif key == 'r' or key == 'F5':
+        elif key == 'r' or key == 'f5':
             if not self._running_tests:
                 thread.start_new_thread(
                     self.run_tests, (True, )
