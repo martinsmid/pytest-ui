@@ -153,24 +153,20 @@ class PutrPytestPlugin(object):
     def pytest_collectstart(self, collector):
         logger.debug('pytest_collectstart %s', collector)
 
-    @pytest.hookimpl(hookwrapper=True)
-    def pytest_runtest_makereport(self, item, call):
-        outcome = yield
-        result = outcome.get_result()
-        logger.debug('report %s: %s', self.runner.get_test_id(item), result)
-        logger.debug('result.capstdout %s', result.capstdout)
-        logger.debug('result.capstderr %s', result.capstderr)
-        if (call.when == 'setup' and result.outcome == 'skipped'
-            or call.when == 'call'):
-            self.runner.set_test_result(self.runner.get_test_id(item), result, result.capstdout + result.capstderr)
+    def pytest_runtest_logreport(self, report):
+        logger.debug('pytest_runtest_logreport')
+        logger.debug('report %s: %s', report.nodeid, report)
+        logger.debug('report.capstdout %s', report.capstdout)
+        logger.debug('report.capstderr %s', report.capstderr)
+        if (report.when == 'setup' and report.outcome == 'skipped'
+            or report.when == 'call'):
+            self.runner.set_test_result(report.nodeid, report, report.capstdout + report.capstderr)
 
-        logger.debug('pytest_runtest_makereport %s %s', item, call)
 
     def pytest_collectreport(self, report):
         logger.debug('pytest_collectreport %s', report)
 
     def pytest_collection_modifyitems(self, session, config, items):
-        # import pudb; pu.db
         logger.debug('pytest_collection_modifyitems %s %s %s', session, config, items)
 
         items[:] = filter(self.runner.is_test_filtered, items)
@@ -181,7 +177,7 @@ class Runner(object):
     def __init__(self, path='.', load_tests=True):
         self.ui = None
         self.path = path
-        self.tests = {}
+        self.tests = OrderedDict()
         # self.rollbackImporter = RollbackImporter()
 
         if load_tests:
@@ -280,7 +276,7 @@ class PytestRunner(Runner):
         return test.nodeid #.replace('/', '.')
 
     def init_tests(self):
-        pytest.main(['-q', '-p', 'no:terminal', '--collect-only', self.path], plugins=[PutrPytestPlugin(self)])
+        pytest.main(['-p', 'no:terminal', '--collect-only', self.path], plugins=[PutrPytestPlugin(self)])
 
     def init_test_data(self):
         self.test_data = {test_id: {'suite': test} for test_id, test in self.tests.iteritems()}
@@ -291,7 +287,7 @@ class PytestRunner(Runner):
 
     def run_tests(self, failed_only=True, filtered=True):
         self._running_tests = True
-        pytest.main(['-q', '-p', 'no:terminal', self.path],
+        pytest.main(['-p', 'no:terminal', self.path],
             plugins=[PutrPytestPlugin(self, self._get_tests(failed_only, filtered))])
         self._running_tests = False
 
@@ -374,7 +370,7 @@ class TestRunnerUI(object):
         if not self.re_filter:
             return self.runner.tests
 
-        current_test_list = {k: v for k, v in self.runner.tests.iteritems() if self.re_filter.findall(k)}
+        current_test_list = OrderedDict([(k, v) for k, v in self.runner.tests.iteritems() if self.re_filter.findall(k)])
         return current_test_list
 
     def on_filter_change(self, filter_widget, filter_value):
