@@ -34,9 +34,11 @@ class TestH(unittest.TestCase):
 
     def test_feat_1_case_6(self):
         time.sleep(0.1)
+        raise Exception('Wrong')
 
     def test_feat_1_case_7(self):
         time.sleep(0.1)
+        raise Exception('Wrong')
 
     def test_feat_1_case_8(self):
         time.sleep(0.1)
@@ -46,6 +48,7 @@ class TestH(unittest.TestCase):
 
     def test_feat_1_case_10(self):
         time.sleep(0.1)
+        raise Exception('Wrong')
 
     def test_feat_1_case_11(self):
         time.sleep(0.1)

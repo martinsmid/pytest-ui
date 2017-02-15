@@ -2,6 +2,7 @@ import unittest
 
 import logging
 
+logging.basicConfig()
 logger = logging.getLogger(__name__)
 
 class TestA(unittest.TestCase):
