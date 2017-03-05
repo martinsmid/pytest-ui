@@ -13,6 +13,9 @@ setup(
     entry_points={
         'pytest11': [
             'pytui = pytui.runner',
+        ],
+        'console_scripts': [
+            'pytui = pytui.runner:main',
         ]
     },
     install_requires=['urwid>=1.3.1', 'pytest>=3.0.5'],

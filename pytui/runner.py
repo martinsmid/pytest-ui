@@ -555,7 +555,7 @@ class TestRunnerUI(object):
         elif key == 'meta up':
             self.focus_failed_sibling(-1)
 
-if __name__ == '__main__':
+def main():
     path = sys.argv[1] if len(sys.argv) - 1 else '.'
     logging_tools.configure()
     logger.debug('Configured logging')
@@ -563,3 +563,6 @@ if __name__ == '__main__':
     runner = PytestRunner(path)
     ui = TestRunnerUI(runner)
     ui.run()
+
+if __name__ == '__main__':
+    main()
