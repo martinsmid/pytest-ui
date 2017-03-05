@@ -15,7 +15,7 @@ setup(
             'pytui = pytui.runner',
         ]
     },
-    install_requires=['urwid,pytest'],
+    install_requires=['urwid>=1.3.1,pytest>=3.0.5'],
     classifiers=[
         'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
