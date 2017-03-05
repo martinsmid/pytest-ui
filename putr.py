@@ -75,9 +75,10 @@ class TestLine(urwid.Widget):
         result_state_str = self.test_data.get('result_state', '')
         (maxcol,) = size
         attr = []
-        main_attr = ('running', maxcol - 13) if self._is_running else (None, maxcol - 13)
+        title_width = maxcol - 13
+        main_attr = ('running', title_width) if self._is_running else (None, title_width)
         state_attr = (result_state_str, 10)
-        return urwid.TextCanvas(['{} [{:10}]'.format(self.test_data['id'].ljust(maxcol - 13), result_state_str[:10])],
+        return urwid.TextCanvas(['{} [{:10}]'.format(self.test_data['id'][:title_width].ljust(title_width), result_state_str[:10])],
             maxcol=maxcol, attr=[[main_attr, (None, 2), state_attr, (None, 1)]])
 
     def keypress(self, size, key):
