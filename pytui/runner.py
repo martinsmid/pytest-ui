@@ -140,7 +140,7 @@ class TestResultWindow(urwid.LineBox):
     def set_focus(self, item):
         self._original_widget.set_focus(item)
 
-class PutrPytestPlugin(object):
+class PytestPlugin(object):
     def __init__(self, runner, test_list={}):
         self.runner = runner
 
@@ -281,7 +281,7 @@ class PytestRunner(Runner):
         return test.nodeid #.replace('/', '.')
 
     def init_tests(self):
-        pytest.main(['-p', 'no:terminal', '--collect-only', self.path], plugins=[PutrPytestPlugin(self)])
+        pytest.main(['-p', 'no:terminal', '--collect-only', self.path], plugins=[PytestPlugin(self)])
 
     def init_test_data(self):
         self.test_data = {test_id: {'suite': test} for test_id, test in self.tests.iteritems()}
@@ -293,7 +293,7 @@ class PytestRunner(Runner):
     def run_tests(self, failed_only=True, filtered=True):
         self._running_tests = True
         pytest.main(['-p', 'no:terminal', self.path],
-            plugins=[PutrPytestPlugin(self, self._get_tests(failed_only, filtered))])
+            plugins=[PytestPlugin(self, self._get_tests(failed_only, filtered))])
         self._running_tests = False
 
     def result_state(self, report):

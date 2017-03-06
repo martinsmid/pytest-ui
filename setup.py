@@ -12,7 +12,7 @@ setup(
     author='Martin Smid',
     entry_points={
         'pytest11': [
-            'pytui = pytui.runner',
+            'pytui = pytui.runner:PytestPlugin',
         ],
         'console_scripts': [
             'pytui = pytui.runner:main',
