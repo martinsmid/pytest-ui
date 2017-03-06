@@ -564,5 +564,10 @@ def main():
     ui = TestRunnerUI(runner)
     ui.run()
 
+
+runner = PytestRunner('.')
+plugin = PytestPlugin(runner)
+
+
 if __name__ == '__main__':
     main()
