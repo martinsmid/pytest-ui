@@ -325,7 +325,11 @@ class PytestRunner(Runner):
     def get_failed_sibling(self, test_id, direction):
         tests = self._get_tests(True, True)
         keys = tests.keys()
-        next_pos = keys.index(test_id) + direction
+        try:
+            next_pos = keys.index(test_id) + direction
+        except ValueError as e:
+            return None
+
         if not (next_pos >= 0 and next_pos < len(keys)):
             return None
 
