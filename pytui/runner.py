@@ -249,7 +249,7 @@ class PytestRunner(Runner):
         return test.nodeid #.replace('/', '.')
 
     def init_tests(self):
-        pytest.main(['-p', 'no:terminal', '--collect-only', self.path], plugins=[PytestPlugin(self)])
+        pytest.main(['-p', 'no:terminal', '--collect-only', self.path], plugins=[PytestPlugin(None, self)])
 
     def init_test_data(self):
         self.test_data = {test_id: {'suite': test} for test_id, test in self.tests.iteritems()}
@@ -261,7 +261,7 @@ class PytestRunner(Runner):
     def run_tests(self, failed_only=True, filtered=True):
         self._running_tests = True
         pytest.main(['-p', 'no:terminal', self.path],
-            plugins=[PytestPlugin(self, self._get_tests(failed_only, filtered))])
+            plugins=[PytestPlugin(None, self, self._get_tests(failed_only, filtered))])
         self._running_tests = False
 
     def result_state(self, report):

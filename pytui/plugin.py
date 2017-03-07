@@ -1,3 +1,7 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 def pytest_configure(config):
     """Activate the plugin."""
