@@ -73,6 +73,7 @@ class TestLine(urwid.Widget):
 
     def render(self, size, focus=False):
         result_state_str = self.test_data.get('result_state', '')
+        # logger.debug('rendering %s', self.test_data)
         (maxcol,) = size
         attr = []
         title_width = maxcol - 13
@@ -144,36 +145,26 @@ class PutrPytestPlugin(object):
     def __init__(self, runner, test_list={}):
         self.runner = runner
 
-    # def pytest_runtest_protocol(self, item, nextitem):
-    #     logger.debug('pytest_runtest_protocol %s %s', item, nextitem)
-
     def pytest_itemcollected(self, item):
-        # logger.debug('pytest_itemcollected %s', item)
+        logger.debug('pytest_itemcollected %s', item)
         self.runner.add_test(item)
 
-    # def pytest_collectstart(self, collector):
-    #     logger.debug('pytest_collectstart %s', collector)
-
-
     def pytest_runtest_makereport(self, item, call):
-        # logger.debug('pytest_runtest_makereport %s %s', item, str(type(call.excinfo)))
+        logger.debug('pytest_runtest_makereport %s %s %s', item, call.when, str(type(call.excinfo)))
         if call.excinfo:
             self.runner.set_exc_info(item.nodeid, call.excinfo)
 
     def pytest_runtest_logreport(self, report):
-        if (report.when == 'setup' and report.outcome == 'skipped'
-            or report.when == 'call'):
+        logger.debug('pytest_runtest_logreport %s', report)
+        if (report.outcome != 'passed' or report.when == 'teardown'):
             self.runner.set_test_result(report.nodeid, report, report.capstdout + report.capstderr)
 
-    # def pytest_collectreport(self, report):
-    #     logger.debug('pytest_collectreport %s', report)
 
     def pytest_collection_modifyitems(self, session, config, items):
         def filtered_and_failed(test):
             return self.runner.is_test_filtered(test) and self.runner.is_test_failed(test)
 
         items[:] = filter(filtered_and_failed, items)
-        # logger.debug('Filtered items %s', items)
 
 
 class Runner(object):
@@ -181,6 +172,7 @@ class Runner(object):
         self.ui = None
         self.path = path
         self.tests = OrderedDict()
+        self.test_data = {}
         # self.rollbackImporter = RollbackImporter()
 
         if load_tests:
@@ -189,25 +181,43 @@ class Runner(object):
 
     def set_test_result(self, test_id, result, output):
         logger.debug('result %s', result)
-        self.test_data[test_id].update({
-            'result': result,
-            'output': output,
-            'result_state': self.result_state(result)
-        })
+        # only update unset results to avoid overriding with teardown success
+        test_data = self.test_data.get(test_id)
+        if test_data and self.test_data[test_id].get('result') is None:
+            self.test_data[test_id].update({
+                'result': result,
+                'output': output,
+                'result_state': self.result_state(result)
+            })
+
+        self.ui.update_test_result(test_id)
+
+    def clear_test_result(self, test_id):
+        test_data = self.test_data.get(test_id)
+        if test_data:
+            self.test_data[test_id].update({
+                'result': None,
+                'output': '',
+                'result_state': ''
+            })
 
         self.ui.update_test_result(test_id)
 
     def set_exc_info(self, test_id, excinfo):
         self.test_data[test_id]['exc_info'] = excinfo
-        self.test_data[test_id]['output'] = excinfo.getrepr()
+        self.test_data[test_id]['output'] = unicode(excinfo.getrepr())
+        self.test_data[test_id]['result_state'] = 'failed'
+        logger.debug('exc_info set: %s %s', test_id, self.test_data[test_id]['result_state'])
 
     def get_test_id(self, test):
         raise NotImplementedError()
 
     def is_test_failed(self, test):
         test_id = self.get_test_id(test)
-        failed = self.test_data[test_id].get('result_state') in self._test_fail_states
-        logger.debug('%s failed: %r', test_id, failed)
+        test_data = self.test_data.get(test_id)
+
+        failed = not test_data or test_data.get('result_state') in self._test_fail_states
+        logger.debug('failed: %r %s', failed, test_id)
         return failed
 
     def is_test_filtered(self, test):
@@ -237,8 +247,7 @@ class Runner(object):
 
         return OrderedDict([(test_id, test) for test_id, test in tests.iteritems()
                                   if not failed_only
-                                      or (failed_only and self.is_test_failed(test))
-                            ])
+                                      or (failed_only and self.is_test_failed(test))])
 
 
 class UnittestRunner(Runner):
@@ -252,7 +261,6 @@ class UnittestRunner(Runner):
 
     def init_test_data(self):
         self.test_data = {test_id: {'suite': test} for test_id, test in self.tests.iteritems()}
-        self.current_test_list = self.tests
         logger.debug('Inited tests %s', self.test_data)
 
     def reload_tests(self):
@@ -299,7 +307,7 @@ class PytestRunner(Runner):
 
     def invalidate_test_results(self, tests):
         for test_id, test in tests.iteritems():
-            self.set_test_result(test_id, None, '')
+            self.clear_test_result(test_id)
 
     def run_tests(self, failed_only=True, filtered=True):
         self._running_tests = True
@@ -445,7 +453,7 @@ class TestRunnerUI(object):
         return self.test_data[test_id]['position']
 
     def run_tests(self, failed_only=True, filtered=True):
-        logger.debug('Running tests (failed_only: %r, filtered: %r)', failed_only, filtered)
+        logger.info('Running tests (failed_only: %r, filtered: %r)', failed_only, filtered)
         self._running_tests = True
         self._first_failed_focused = False
         self.runner.run_tests(failed_only, filtered)
@@ -488,8 +496,8 @@ class TestRunnerUI(object):
 
     def update_test_result(self, test_id):
         test_data = self.runner.test_data[test_id]
-        result_state_str = test_data.get('result_state')
-        logger.debug('new test result %s %r', test_id, result_state_str)
+        result_state_str = test_data.get('result_state', '')
+        logger.debug('test_data %s', test_data)
         self.test_data[test_id]['result_state'] = result_state_str
         if result_state_str in ['failed', 'error'] and not self._first_failed_focused:
             self.w_test_listbox.set_focus(self._get_test_position(test_id))
@@ -579,7 +587,7 @@ class TestRunnerUI(object):
 def main():
     path = sys.argv[1] if len(sys.argv) - 1 else '.'
     logging_tools.configure()
-    logger.debug('Configured logging')
+    logger.info('Configured logging')
 
     runner = PytestRunner(path)
     ui = TestRunnerUI(runner)
