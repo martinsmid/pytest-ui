@@ -162,7 +162,7 @@ class PutrPytestPlugin(object):
 
     def pytest_collection_modifyitems(self, session, config, items):
         def filtered_and_failed(test):
-            return self.runner.is_test_filtered(test) and self.runner.is_test_failed(test)
+            return self.runner.filter_match(test) and self.runner.is_test_failed(test)
 
         items[:] = filter(filtered_and_failed, items)
 
@@ -220,11 +220,11 @@ class Runner(object):
         logger.debug('failed: %r %s', failed, test_id)
         return failed
 
-    def is_test_filtered(self, test):
-        if not self.ui:
+    def filter_match(self, test):
+        if not self.ui or not self.ui.re_filter:
             return True
 
-        return self.get_test_id(test) in self.ui.current_test_list.keys()
+        return self.ui.re_filter.findall(self.get_test_id(test))
 
     def get_test_stats(self):
         res = {
@@ -237,7 +237,7 @@ class Runner(object):
             if self.test_data[test_id].get('result_state') in self._test_fail_states:
                 res['failed'] += 1
 
-            if self.is_test_filtered(test):
+            if self.filter_match(test):
                 res['filtered'] += 1
 
         return res
