@@ -14,6 +14,8 @@ import unittest
 from StringIO import StringIO
 import __builtin__
 
+from plugin import PytestPlugin
+
 logger = logging.getLogger(__name__)
 
 
@@ -140,32 +142,6 @@ class TestResultWindow(urwid.LineBox):
 
     def set_focus(self, item):
         self._original_widget.set_focus(item)
-
-class PutrPytestPlugin(object):
-    def __init__(self, runner, test_list={}):
-        self.runner = runner
-
-    def pytest_itemcollected(self, item):
-        logger.debug('pytest_itemcollected %s', item)
-        self.runner.add_test(item)
-
-    def pytest_runtest_makereport(self, item, call):
-        logger.debug('pytest_runtest_makereport %s %s %s', item, call.when, str(type(call.excinfo)))
-        if call.excinfo:
-            self.runner.set_exc_info(item.nodeid, call.excinfo)
-
-    def pytest_runtest_logreport(self, report):
-        logger.debug('pytest_runtest_logreport %s', report)
-        if (report.outcome != 'passed' or report.when == 'teardown'):
-            self.runner.set_test_result(report.nodeid, report, report.capstdout + report.capstderr)
-
-
-    def pytest_collection_modifyitems(self, session, config, items):
-        def filtered_and_failed(test):
-            return self.runner.is_test_filtered(test) and self.runner.is_test_failed(test)
-
-        items[:] = filter(filtered_and_failed, items)
-
 
 class Runner(object):
     def __init__(self, path='.', load_tests=True):
@@ -296,7 +272,7 @@ class PytestRunner(Runner):
         return test.nodeid #.replace('/', '.')
 
     def init_tests(self):
-        pytest.main(['-p', 'no:terminal', '--collect-only', self.path], plugins=[PutrPytestPlugin(self)])
+        pytest.main(['--capture', 'sys', '-p', 'no:terminal', '--collect-only', self.path], plugins=[PytestPlugin(None, self)])
 
     def init_test_data(self):
         self.test_data = {test_id: {'suite': test} for test_id, test in self.tests.iteritems()}
@@ -313,8 +289,8 @@ class PytestRunner(Runner):
         self._running_tests = True
         tests = self._get_tests(failed_only, filtered)
         self.invalidate_test_results(tests)
-        pytest.main(['-p', 'no:terminal', self.path],
-            plugins=[PutrPytestPlugin(self, tests)])
+        pytest.main(['--capture', 'sys', '-p', 'no:terminal', self.path],
+            plugins=[PytestPlugin(None, self, self._get_tests(failed_only, filtered))])
         self._running_tests = False
 
     def result_state(self, report):
@@ -584,6 +560,7 @@ class TestRunnerUI(object):
         elif key == 'meta up':
             self.focus_failed_sibling(-1)
 
+
 def main():
     path = sys.argv[1] if len(sys.argv) - 1 else '.'
     logging_tools.configure()
@@ -592,6 +569,7 @@ def main():
     runner = PytestRunner(path)
     ui = TestRunnerUI(runner)
     ui.run()
+
 
 if __name__ == '__main__':
     main()
