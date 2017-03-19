@@ -15,7 +15,7 @@ setup(
             'pytui = pytui.plugin',
         ],
         'console_scripts': [
-            'pytui = pytui.runner:main',
+            'pytui = pytui.ui:main',
         ]
     },
     install_requires=['urwid>=1.3.1', 'pytest>=3.0.5'],
