@@ -15,7 +15,7 @@ import __builtin__
 from plugin import PytestPlugin
 
 
-logger = logging.getLogger(__name__)
+logger = logging_tools.get_logger(__name__)
 
 
 class RollbackImporter:
@@ -50,6 +50,7 @@ class Runner(object):
         self.tests = OrderedDict()
         self.test_data = {}
         # self.rollbackImporter = RollbackImporter()
+        self.write_pipe = None
 
         if load_tests:
             self.init_tests()
@@ -66,7 +67,11 @@ class Runner(object):
                 'result_state': self.result_state(result)
             })
 
-        self.ui.update_test_result(test_id)
+        self.update_test_result(test_id)
+
+    def update_test_result(self, test_id):
+        # self.ui.update_test_result(test_id)
+        self.write_pipe.send({'method': 'update_test_result', 'params': {'test_id': test_id}})
 
     def clear_test_result(self, test_id):
         test_data = self.test_data.get(test_id)
@@ -77,7 +82,7 @@ class Runner(object):
                 'result_state': ''
             })
 
-        self.ui.update_test_result(test_id)
+        self.update_test_result(test_id)
 
     def set_exc_info(self, test_id, excinfo):
         self.test_data[test_id]['exc_info'] = excinfo
@@ -184,9 +189,15 @@ class PytestRunner(Runner):
     def init_tests(self):
         pytest.main(['--capture', 'sys', '-p', 'no:terminal', '--collect-only', self.path], plugins=[PytestPlugin(None, self)])
 
+    @classmethod
+    def p_init_tests(cls, path, write_pipe):
+        """ Class method for running in separate process """
+        runner = cls(path, write_pipe)
+        runner.init_tests()
+
     def init_test_data(self):
         self.test_data = {test_id: {'suite': test} for test_id, test in self.tests.iteritems()}
-        logger.debug('Inited tests %s', self.test_data)
+        logger.debug('Inited %d tests', len(self.test_data))
 
     def add_test(self, item):
         self.tests[self.get_test_id(item)] = item
@@ -195,7 +206,7 @@ class PytestRunner(Runner):
         for test_id, test in tests.iteritems():
             self.clear_test_result(test_id)
 
-    def run_tests(self, failed_only=True, filtered=True):
+    def run_tests(self, failed_only=True, filtered=True, write_pipe=None):
         self._running_tests = True
         tests = self._get_tests(failed_only, filtered)
         self.invalidate_test_results(tests)

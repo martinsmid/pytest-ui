@@ -1,12 +1,17 @@
+#!/usr/bin/env python
+# encoding: utf-8
+
 import urwid
 import thread
 import logging
+import multiprocessing
 from collections import OrderedDict, defaultdict
 
+import logging_tools
 from runner import PytestRunner
 
 
-logger = logging.getLogger(__name__)
+logger = logging_tools.get_logger(__name__)
 
 
 class TestLine(urwid.Widget):
@@ -44,9 +49,9 @@ class TestLine(urwid.Widget):
 class StatusLine(urwid.Widget):
     _sizing = frozenset(['flow'])
 
-    def __init__(self, runner, *args, **kwargs):
+    def __init__(self, stats_callback, *args, **kwargs):
         super(StatusLine, self).__init__(*args, **kwargs)
-        self.runner = runner
+        self.stats_callback = stats_callback
 
     def rows(self, size, focus=False):
         return 1
@@ -54,7 +59,7 @@ class StatusLine(urwid.Widget):
     def render(self, size, focus=False):
         (maxcol,) = size
 
-        stats = self.runner.get_test_stats()
+        stats = self.stats_callback()
         return urwid.TextCanvas(
             ['Total: {} Filtered: {} Failed: {}'.format(stats['total'],
                                                         stats['filtered'],
@@ -108,32 +113,35 @@ class TestRunnerUI(object):
         ('statusline',  'white',      'dark blue',    '', '',     ''),
     ]
 
-    def __init__(self, runner):
+    def __init__(self, runner_class, path):
         logger.info('Runner UI init')
         urwid.set_encoding("UTF-8")
 
+        self.runner_class = runner_class
+        self.path = path
+        self.test_data = OrderedDict()
+
         self.main_loop = None
         self.w_main = None
-        self.test_data = defaultdict(dict)
         self.re_filter = None
-        self.runner = runner
-        self.runner.ui = self
         self._first_failed_focused = False
+        self._running_tests = False
+        self.child_pipe = None
 
         self.init_main_screen()
-        self._running_tests = False
         self.init_test_listbox()
+        self.init_test_data()
 
-    def add_test(self, item):
-        if item.nodeid in self.tests:
-            logging.warn('Duplicate test id collected %s', item.nodeid)
+    # def add_test(self, item):
+    #     if item.nodeid in self.tests:
+    #         logging.warn('Duplicate test id collected %s', item.nodeid)
 
-        self.tests[item.nodeid] = item
+    #     self.tests[item.nodeid] = item
 
     def init_main_screen(self):
         self.w_filter_edit = urwid.Edit('Filter ')
         aw_filter_edit = urwid.AttrMap(self.w_filter_edit, 'edit', 'edit_focus')
-        self.w_status_line = urwid.AttrMap(StatusLine(self.runner), 'statusline', '')
+        self.w_status_line = urwid.AttrMap(StatusLine(self.get_test_stats), 'statusline', '')
         urwid.connect_signal(self.w_filter_edit, 'change', self.on_filter_change)
         self.init_test_listbox()
         self.w_main = urwid.Padding(
@@ -158,13 +166,21 @@ class TestRunnerUI(object):
             self.w_main.original_widget.widget_list[4] = self.w_test_listbox
             self.w_main.original_widget._invalidate()
 
+    def init_test_data(self):
+        multiprocessing.Process(
+            target=self.runner_class.p_init_tests, args=(self.path, self.child_pipe)
+        )
+
     @property
     def current_test_list(self):
         if not self.re_filter:
-            return self.runner.tests
+            return self.test_data
 
-        current_test_list = OrderedDict([(k, v) for k, v in self.runner.tests.iteritems() if self.re_filter.findall(k)])
+        current_test_list = OrderedDict([(k, v) for k, v in self.test_data.iteritems() if self.re_filter.findall(k)])
         return current_test_list
+
+    def get_test_stats(self):
+        return {'total': 1, 'filtered': 1, 'failed': 1}
 
     def on_filter_change(self, filter_widget, filter_value):
         if not filter_value:
@@ -181,9 +197,17 @@ class TestRunnerUI(object):
         # self.main_loop.widget._invalidate()
         # self.main_loop.draw_screen()
 
+    def received_output(data):
+        """
+            Parse data received by client and execute encoded action
+        """
+        self.logger.debug('received_output %s %s', type(data), data)
+
+
     def run(self):
         self.main_loop = urwid.MainLoop(self.w_main, palette=self.palette,
                        unhandled_input=self.unhandled_keypress)
+        self.child_pipe = self.main_loop.watch_pipe(self.received_output)
         self.main_loop.run()
 
     def popup(self, widget):
@@ -201,13 +225,15 @@ class TestRunnerUI(object):
         logger.info('Running tests (failed_only: %r, filtered: %r)', failed_only, filtered)
         self._running_tests = True
         self._first_failed_focused = False
-        self.runner.run_tests(failed_only, filtered)
+
+        multiprocessing.Process(
+            self.runner.run_tests, args=(failed_only, filtered, self.child_pipe)
+        )
 
         self.w_test_listbox._invalidate()
         self.w_main._invalidate()
         self.main_loop.draw_screen()
         self._running_tests = False
-
 
     def _run_test(self, test_id):
         self.test_data[test_id]['widget']._is_running = True
@@ -315,14 +341,10 @@ class TestRunnerUI(object):
             self.w_main.original_widget.set_focus(2)
         elif key == 'R':
             if not self._running_tests:
-                thread.start_new_thread(
-                    self.run_tests, (False, )
-                )
+                self.run_tests(False)
         elif key == 'r' or key == 'f5':
             if not self._running_tests:
-                thread.start_new_thread(
-                    self.run_tests, (True, )
-                )
+                self.run_tests(True)
         elif key == 'meta down':
             self.focus_failed_sibling(1)
 
@@ -337,10 +359,10 @@ def main():
     logging_tools.configure()
     logger.info('Configured logging')
 
-    runner = PytestRunner(path)
-    ui = TestRunnerUI(runner)
-    ui.run()
 
+    ui = TestRunnerUI(PytestRunner, path)
+    ui.run()
 
 if __name__ == '__main__':
     main()
+

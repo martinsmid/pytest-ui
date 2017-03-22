@@ -1,4 +1,8 @@
+import logging
 import logging.config
+
+def get_logger(name):
+    return logging.getLogger('project.{}'.format(name))
 
 def configure():
     logging_dict = {
@@ -12,12 +16,12 @@ def configure():
             },
             'logfile': {
                 'class': 'logging.FileHandler',
-                'filename': 'putr.log',
+                'filename': 'pytui.log',
                 'mode': 'w+',
             }
         },
         'loggers': {
-            '__main__': {
+            'project': {
                 'handlers': ['logfile'],
                 'level': 'DEBUG',
             }
