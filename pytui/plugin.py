@@ -14,7 +14,7 @@ def pytest_configure(config):
 
 
 class PytestPlugin(object):
-    def __init__(self, config, runner):
+    def __init__(self, config=None, runner):
         self.runner = runner
 
     def pytest_runtest_protocol(self, item, nextitem):

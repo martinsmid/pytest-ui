@@ -125,18 +125,13 @@ class TestRunnerUI(object):
 
         self.main_loop = None
         self.w_main = None
-        self.re_filter = None
+        self.filter_regex = None
+        self.filter_value = None
         self._first_failed_focused = False
         self._running_tests = False
         self.child_pipe = None
 
         self.init_main_screen()
-
-    # def add_test(self, item):
-    #     if item.nodeid in self.tests:
-    #         logging.warn('Duplicate test id collected %s', item.nodeid)
-
-    #     self.tests[item.nodeid] = item
 
     def init_main_screen(self):
         self.w_filter_edit = urwid.Edit('Filter ')
@@ -157,45 +152,50 @@ class TestRunnerUI(object):
             left=2, right=2
         )
 
-    # def on_testlist_change(self):
-    #     self.init_test_listbox()
-
     def init_test_listbox(self):
         self.w_test_listbox = self.test_listbox(self.current_test_list.keys())
         if self.w_main:
+            self.w_status_line.original_widget._invalidate()
             self.w_main.original_widget.widget_list[4] = self.w_test_listbox
             self.w_main.original_widget._invalidate()
 
     def init_test_data(self):
-        logger.debug('running test init')
         multiprocessing.Process(
-            target=self.runner_class.process_init_tests, args=(self.path, self.child_pipe)
+            target=self.runner_class.process_init_tests,
+            args=(self.path, self.child_pipe)
         ).start()
-        logger.debug('running test init > done')
 
     @property
     def current_test_list(self):
-        if not self.re_filter:
+        if not self.filter_regex:
             return self.test_data
 
-        current_test_list = OrderedDict([(k, v) for k, v in self.test_data.iteritems() if self.re_filter.findall(k)])
+        current_test_list = OrderedDict([
+            (k, v) for k, v in self.test_data.iteritems()
+                if self.filter_regex.findall(k)
+        ])
         return current_test_list
 
     def get_test_stats(self):
-        return {'total': 1, 'filtered': 1, 'failed': 1}
+        return {
+            'total': len(self.test_data),
+            'filtered': len(self.current_test_list),
+            'failed': 1
+        }
 
     def on_filter_change(self, filter_widget, filter_value):
+        self.filter_value = filter_value
         if not filter_value:
-            self.re_filter = None
+            self.filter_regex = None
         else:
             regexp_str = '.*?'.join(list(iter(
                 filter_value.replace('.', '\.').replace(r'\\', '\\\\')
             )))
-            self.re_filter = re.compile(regexp_str, re.UNICODE + re.IGNORECASE)
+            self.filter_regex = re.compile(regexp_str, re.UNICODE + re.IGNORECASE)
 
         self.init_test_listbox()
-        self.w_main.original_widget._invalidate()
-        self.w_status_line.original_widget._invalidate()
+        # self.w_main.original_widget._invalidate()
+        # self.w_status_line.original_widget._invalidate()
         # self.main_loop.widget._invalidate()
         # self.main_loop.draw_screen()
 
@@ -245,13 +245,17 @@ class TestRunnerUI(object):
     def _get_test_position(self, test_id):
         return self.test_data[test_id]['position']
 
-    def run_tests(self, failed_only=True, filtered=True):
+    def run_tests(self, failed_only=True, filtered=None):
+        if filtered is None:
+            filtered = self.filter_value
+
         logger.info('Running tests (failed_only: %r, filtered: %r)', failed_only, filtered)
         self._running_tests = True
         self._first_failed_focused = False
 
         multiprocessing.Process(
-            self.runner_class.run_tests, args=(failed_only, filtered, self.child_pipe)
+            target=self.runner_class.run_tests,
+            args=(failed_only, filtered, self.child_pipe)
         ).start()
 
         self.w_test_listbox._invalidate()

@@ -197,8 +197,8 @@ class PytestRunner(Runner):
     def init_tests(self):
         logger.debug('Running pytest --collect-only')
 
-        pytest.main(['-p', 'no:capture', '-p', 'no:terminal', '--collect-only', self.path],
-            plugins=[PytestPlugin(None, self)])
+        pytest.main(['-p', 'no:terminal', '--collect-only', self.path],
+            plugins=[PytestPlugin(runner=self)])
 
 
     @classmethod
@@ -210,6 +210,12 @@ class PytestRunner(Runner):
         runner = cls(path, write_pipe=write_pipe, load_tests=False)
         runner.init_tests()
         logger.debug('Inside the runner process end')
+
+    @classmethod
+    def process_run_tests(cls, failed_only, filtered):
+        logging_tools.configure('pytui-runner.log')
+        runner = cls(path, write_pipe=write_pipe, load_tests=False)
+        runner.run_tests(failed_only, filtered)
 
     def init_test_data(self):
         self.test_data = {test_id: {'suite': test} for test_id, test in self.tests.iteritems()}
@@ -223,12 +229,12 @@ class PytestRunner(Runner):
         for test_id, test in tests.iteritems():
             self.clear_test_result(test_id)
 
-    def run_tests(self, failed_only=True, filtered=True, write_pipe=None):
+    def run_tests(self, failed_only, filtered):
         self._running_tests = True
         tests = self._get_tests(failed_only, filtered)
         self.invalidate_test_results(tests)
-        pytest.main(['--capture', 'sys', '-p', 'no:terminal', self.path],
-            plugins=[PytestPlugin(None, self, self._get_tests(failed_only, filtered))])
+        pytest.main(['-p', 'no:terminal', self.path],
+            plugins=[PytestPlugin(runner=self)])
         self._running_tests = False
 
     def result_state(self, report):
