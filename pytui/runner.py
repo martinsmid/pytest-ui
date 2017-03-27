@@ -2,7 +2,9 @@
 # encoding: utf-8
 
 import re
+import os
 import sys
+import json
 import pytest
 import logging
 import traceback
@@ -44,14 +46,13 @@ class RollbackImporter:
 
 
 class Runner(object):
-    def __init__(self, path='.', load_tests=True):
+    def __init__(self, path='.', load_tests=True, write_pipe=None):
         self.ui = None
         self.path = path
         self.tests = OrderedDict()
         self.test_data = {}
-        # self.rollbackImporter = RollbackImporter()
-        self.write_pipe = None
-
+        logger.debug('%s Init', self.__class__.__name__)
+        self.write_pipe = os.fdopen(write_pipe, 'w', 0)
         if load_tests:
             self.init_tests()
             self.init_test_data()
@@ -69,9 +70,16 @@ class Runner(object):
 
         self.update_test_result(test_id)
 
+    def pipe_send(self, method, **kwargs):
+        logger.debug('writing to pipe %s(%s)', method, kwargs)
+        self.write_pipe.write('%s\n' % json.dumps({
+                'method': method,
+                'params': kwargs
+            }))
+
     def update_test_result(self, test_id):
         # self.ui.update_test_result(test_id)
-        self.write_pipe.send({'method': 'update_test_result', 'params': {'test_id': test_id}})
+        self.pipe_send('update_test_result', test_id=test_id)
 
     def clear_test_result(self, test_id):
         test_data = self.test_data.get(test_id)
@@ -187,20 +195,29 @@ class PytestRunner(Runner):
         return test.nodeid #.replace('/', '.')
 
     def init_tests(self):
-        pytest.main(['--capture', 'sys', '-p', 'no:terminal', '--collect-only', self.path], plugins=[PytestPlugin(None, self)])
+        logger.debug('Running pytest --collect-only')
+
+        pytest.main(['-p', 'no:capture', '-p', 'no:terminal', '--collect-only', self.path],
+            plugins=[PytestPlugin(None, self)])
+
 
     @classmethod
-    def p_init_tests(cls, path, write_pipe):
+    def process_init_tests(cls, path, write_pipe):
+        logging_tools.configure('pytui-runner.log')
+
         """ Class method for running in separate process """
-        runner = cls(path, write_pipe)
+        logger.debug('Inside the runner process %s %s %s' % (cls, path, write_pipe))
+        runner = cls(path, write_pipe=write_pipe, load_tests=False)
         runner.init_tests()
+        logger.debug('Inside the runner process end')
 
     def init_test_data(self):
         self.test_data = {test_id: {'suite': test} for test_id, test in self.tests.iteritems()}
         logger.debug('Inited %d tests', len(self.test_data))
 
-    def add_test(self, item):
-        self.tests[self.get_test_id(item)] = item
+    def item_collected(self, item):
+        # self.tests[self.get_test_id(item)] = item
+        self.pipe_send('item_collected', item_id=self.get_test_id(item))
 
     def invalidate_test_results(self, tests):
         for test_id, test in tests.iteritems():

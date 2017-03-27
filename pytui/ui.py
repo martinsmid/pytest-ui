@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+import re
+import json
 import urwid
 import thread
 import logging
@@ -129,8 +131,6 @@ class TestRunnerUI(object):
         self.child_pipe = None
 
         self.init_main_screen()
-        self.init_test_listbox()
-        self.init_test_data()
 
     # def add_test(self, item):
     #     if item.nodeid in self.tests:
@@ -167,9 +167,11 @@ class TestRunnerUI(object):
             self.w_main.original_widget._invalidate()
 
     def init_test_data(self):
+        logger.debug('running test init')
         multiprocessing.Process(
-            target=self.runner_class.p_init_tests, args=(self.path, self.child_pipe)
-        )
+            target=self.runner_class.process_init_tests, args=(self.path, self.child_pipe)
+        ).start()
+        logger.debug('running test init > done')
 
     @property
     def current_test_list(self):
@@ -197,17 +199,39 @@ class TestRunnerUI(object):
         # self.main_loop.widget._invalidate()
         # self.main_loop.draw_screen()
 
-    def received_output(data):
+    def received_output(self, data):
         """
             Parse data received by client and execute encoded action
         """
-        self.logger.debug('received_output %s %s', type(data), data)
+        logger.debug('received_output %s', data)
+        for chunk in data.split('\n'):
+            if not chunk:
+                continue
+            logger.debug('parsing chunk %s', chunk)
+            try:
+                payload = json.loads(chunk)
+                assert 'method' in payload
+                assert 'params' in payload
+            except Exception as e:
+                logger.exception('Failed to parse runner input')
 
+            if payload['method'] == 'item_collected':
+                self.runner_item_collected(**payload['params'])
+
+
+    def runner_item_collected(self, item_id):
+        self.test_data[item_id] = {
+            'id': item_id
+        }
+        self.init_test_listbox()
 
     def run(self):
         self.main_loop = urwid.MainLoop(self.w_main, palette=self.palette,
                        unhandled_input=self.unhandled_keypress)
         self.child_pipe = self.main_loop.watch_pipe(self.received_output)
+
+        self.init_test_data()
+        logger.debug('Running main urwid loop')
         self.main_loop.run()
 
     def popup(self, widget):
@@ -227,8 +251,8 @@ class TestRunnerUI(object):
         self._first_failed_focused = False
 
         multiprocessing.Process(
-            self.runner.run_tests, args=(failed_only, filtered, self.child_pipe)
-        )
+            self.runner_class.run_tests, args=(failed_only, filtered, self.child_pipe)
+        ).start()
 
         self.w_test_listbox._invalidate()
         self.w_main._invalidate()
@@ -248,9 +272,7 @@ class TestRunnerUI(object):
         sys.stdout = StringIO()
         sys.stderr = StringIO()
 
-        suite = self.tests[test_id]
-        result = unittest.TextTestRunner(stream=sys.stdout, verbosity=2).run(suite)
-        self.runner.set_test_result(test_id, result, sys.stdout.getvalue())
+        # TODO use runner
 
         sys.stdout.close()
         sys.stderr.close()
@@ -266,11 +288,10 @@ class TestRunnerUI(object):
         self.main_loop.draw_screen()
 
     def update_test_result(self, test_id):
-        test_data = self.runner.test_data[test_id]
-        result_state_str = test_data.get('result_state', '')
+        test_data = self.test_data[test_id]
         logger.debug('test_data %s', test_data)
-        self.test_data[test_id]['result_state'] = result_state_str
-        if result_state_str in ['failed', 'error'] and not self._first_failed_focused:
+        display_result_state = test_data.get('display_result_state', '')
+        if display_result_state in ['failed', 'error'] and not self._first_failed_focused:
             self.w_test_listbox.set_focus(self._get_test_position(test_id))
             self._first_failed_focused = True
 
@@ -282,7 +303,7 @@ class TestRunnerUI(object):
         self.main_loop.draw_screen()
 
     def show_test_detail(self, widget, test_id):
-        test_data = self.runner.test_data[test_id]
+        test_data = self.test_data[test_id]
         # if test has already been run
         if 'output' in test_data:
             output = test_data['output']
@@ -300,7 +321,7 @@ class TestRunnerUI(object):
         self.main_loop.widget = self._popup_original
 
     def get_list_item(self, test_id, position):
-        result_state_str = self.runner.test_data[test_id].get('result_state', '')
+        result_state_str = self.test_data[test_id].get('result_state', '')
         self.test_data[test_id].update({
             'widget': None,
             'lw_widget': None,
@@ -323,9 +344,9 @@ class TestRunnerUI(object):
         return urwid.ListBox(urwid.SimpleFocusListWalker(list_items))
 
     def focus_failed_sibling(self, direction):
-        tests = self.runner._get_tests(False, True)
+        tests = self._get_tests(False, True)
         test_id = tests.keys()[self.w_test_listbox.focus_position]
-        next_id = self.runner.get_failed_sibling(test_id, direction)
+        next_id = self.get_failed_sibling(test_id, direction)
         if next_id is not None:
             next_pos = self._get_test_position(next_id)
             self.w_test_listbox.set_focus(next_pos, 'above' if direction == 1 else 'below')
@@ -356,9 +377,8 @@ def main():
     import sys
     import logging_tools
     path = sys.argv[1] if len(sys.argv) - 1 else '.'
-    logging_tools.configure()
+    logging_tools.configure('pytui-ui.log')
     logger.info('Configured logging')
-
 
     ui = TestRunnerUI(PytestRunner, path)
     ui.run()

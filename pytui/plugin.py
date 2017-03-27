@@ -1,6 +1,6 @@
-import logging
+import logging_tools
 
-logger = logging.getLogger(__name__)
+logger = logging_tools.get_logger(__name__)
 
 
 def pytest_configure(config):
@@ -14,7 +14,7 @@ def pytest_configure(config):
 
 
 class PytestPlugin(object):
-    def __init__(self, config, runner, test_list={}, pipe=None):
+    def __init__(self, config, runner):
         self.runner = runner
 
     def pytest_runtest_protocol(self, item, nextitem):
@@ -22,11 +22,7 @@ class PytestPlugin(object):
 
     def pytest_itemcollected(self, item):
         logger.debug('pytest_itemcollected %s', item)
-        self.runner.add_test(item)
-
-    def pytest_collectstart(self, collector):
-        logger.debug('pytest_collectstart %s', collector)
-
+        self.runner.item_collected(item)
 
     def pytest_runtest_makereport(self, item, call):
         logger.debug('pytest_runtest_makereport %s %s %s', item, call.when, str(type(call.excinfo)))
