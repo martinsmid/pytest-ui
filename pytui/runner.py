@@ -57,18 +57,6 @@ class Runner(object):
             self.init_tests()
             self.init_test_data()
 
-    def set_test_result(self, test_id, result, output):
-        logger.debug('result %s', result)
-        # only update unset results to avoid overriding with teardown success
-        test_data = self.test_data.get(test_id)
-        if test_data and self.test_data[test_id].get('result') is None:
-            self.test_data[test_id].update({
-                'result': result,
-                'output': output,
-                'result_state': self.result_state(result)
-            })
-
-        self.update_test_result(test_id)
 
     def pipe_send(self, method, **kwargs):
         logger.debug('writing to pipe %s(%s)', method, kwargs)
@@ -77,26 +65,23 @@ class Runner(object):
                 'params': kwargs
             }))
 
-    def update_test_result(self, test_id):
-        # self.ui.update_test_result(test_id)
-        self.pipe_send('update_test_result', test_id=test_id)
+    def set_test_result(self, test_id, result, output):
+        self.pipe_send('set_test_result',
+            test_id=test_id,
+            output=output,
+            result_state=self.result_state(result)
+        )
 
-    def clear_test_result(self, test_id):
-        test_data = self.test_data.get(test_id)
-        if test_data:
-            self.test_data[test_id].update({
-                'result': None,
-                'output': '',
-                'result_state': ''
-            })
-
-        self.update_test_result(test_id)
-
-    def set_exc_info(self, test_id, excinfo):
-        self.test_data[test_id]['exc_info'] = excinfo
-        self.test_data[test_id]['output'] = unicode(excinfo.getrepr())
-        self.test_data[test_id]['result_state'] = 'failed'
-        logger.debug('exc_info set: %s %s', test_id, self.test_data[test_id]['result_state'])
+    def set_exception_info(self, test_id, excinfo):
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        extracted_traceback = traceback.extract_tb(exc_traceback)
+        self.pipe_send('set_exception_info',
+            test_id=test_id,
+            exc_type=exc_type,
+            exc_value=exc_value,
+            extracted_traceback=extracted_traceback,
+            result='failed'
+        )
 
     def get_test_id(self, test):
         raise NotImplementedError()
@@ -212,7 +197,7 @@ class PytestRunner(Runner):
         logger.debug('Inside the runner process end')
 
     @classmethod
-    def process_run_tests(cls, failed_only, filtered):
+    def process_run_tests(cls, path, failed_only, filtered, write_pipe):
         logging_tools.configure('pytui-runner.log')
         runner = cls(path, write_pipe=write_pipe, load_tests=False)
         runner.run_tests(failed_only, filtered)

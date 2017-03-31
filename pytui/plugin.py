@@ -14,7 +14,7 @@ def pytest_configure(config):
 
 
 class PytestPlugin(object):
-    def __init__(self, config=None, runner):
+    def __init__(self, runner, config=None):
         self.runner = runner
 
     def pytest_runtest_protocol(self, item, nextitem):
@@ -27,7 +27,7 @@ class PytestPlugin(object):
     def pytest_runtest_makereport(self, item, call):
         logger.debug('pytest_runtest_makereport %s %s %s', item, call.when, str(type(call.excinfo)))
         if call.excinfo:
-            self.runner.set_exc_info(item.nodeid, call.excinfo)
+            self.runner.set_exception_info(item.nodeid, call.excinfo)
 
     def pytest_runtest_logreport(self, report):
         logger.debug('pytest_runtest_logreport %s', report)

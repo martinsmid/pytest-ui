@@ -6,6 +6,7 @@ import json
 import urwid
 import thread
 import logging
+import traceback
 import multiprocessing
 from collections import OrderedDict, defaultdict
 
@@ -214,12 +215,17 @@ class TestRunnerUI(object):
                 assert 'params' in payload
             except Exception as e:
                 logger.exception('Failed to parse runner input')
+                return
 
             if payload['method'] == 'item_collected':
-                self.runner_item_collected(**payload['params'])
+                self.item_collected(**payload['params'])
+            elif payload['method'] == 'set_test_result':
+                self.set_test_result(**payload['params'])
+            elif payload['method'] == 'set_exception_info':
+                self.set_exception_info(**payload['params'])
 
 
-    def runner_item_collected(self, item_id):
+    def item_collected(self, item_id):
         self.test_data[item_id] = {
             'id': item_id
         }
@@ -254,8 +260,8 @@ class TestRunnerUI(object):
         self._first_failed_focused = False
 
         multiprocessing.Process(
-            target=self.runner_class.run_tests,
-            args=(failed_only, filtered, self.child_pipe)
+            target=self.runner_class.process_run_tests,
+            args=(self.path, failed_only, filtered, self.child_pipe)
         ).start()
 
         self.w_test_listbox._invalidate()
@@ -291,10 +297,16 @@ class TestRunnerUI(object):
         self.w_status_line.original_widget._invalidate()
         self.main_loop.draw_screen()
 
+    def set_test_result(self, test_id, result_state, output):
+        test_data = self.test_data[test_id]
+        test_data['result_state'] = result_state
+        test_data['output'] = output
+
+        self.update_test_result(test_id)
+
     def update_test_result(self, test_id):
         test_data = self.test_data[test_id]
-        logger.debug('test_data %s', test_data)
-        display_result_state = test_data.get('display_result_state', '')
+        display_result_state = test_data.get('result_state', '')
         if display_result_state in ['failed', 'error'] and not self._first_failed_focused:
             self.w_test_listbox.set_focus(self._get_test_position(test_id))
             self._first_failed_focused = True
@@ -305,6 +317,18 @@ class TestRunnerUI(object):
         self.w_status_line.original_widget._invalidate()
 
         self.main_loop.draw_screen()
+
+    def set_exception_info(self, test_id, exc_type, exc_value, extracted_traceback, result):
+            output = ''.join(
+                traceback.format_list(extracted_traceback) +
+                traceback.format_exception_only(exc_type, exc_value)
+            )
+
+            self.set_test_result(
+                test_id,
+                result,
+                output
+            )
 
     def show_test_detail(self, widget, test_id):
         test_data = self.test_data[test_id]
