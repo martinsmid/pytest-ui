@@ -65,14 +65,16 @@ class Runner(object):
                 'params': kwargs
             }))
 
-    def set_test_result(self, test_id, result, output):
+    def set_test_result(self, test_id, report, output):
         self.pipe_send('set_test_result',
             test_id=test_id,
             output=output,
-            result_state=self.result_state(result)
+            result_state=self.result_state(report),
+            when=report.when,
+            outcome=report.outcome
         )
 
-    def set_exception_info(self, test_id, excinfo):
+    def set_exception_info(self, test_id, excinfo, when):
         exc_type, exc_value, exc_traceback = sys.exc_info()
         extracted_traceback = traceback.extract_tb(exc_traceback)
         self.pipe_send('set_exception_info',
@@ -80,49 +82,12 @@ class Runner(object):
             exc_type=exc_type,
             exc_value=exc_value,
             extracted_traceback=extracted_traceback,
-            result='failed'
+            result='failed',
+            when=when
         )
 
     def get_test_id(self, test):
         raise NotImplementedError()
-
-    def is_test_failed(self, test):
-        test_id = self.get_test_id(test)
-        test_data = self.test_data.get(test_id)
-
-        failed = not test_data or test_data.get('result_state') in self._test_fail_states
-        logger.debug('failed: %r %s', failed, test_id)
-        return failed
-
-    def is_test_filtered(self, test):
-        if not self.ui:
-            return True
-
-        return self.get_test_id(test) in self.ui.current_test_list.keys()
-
-    def get_test_stats(self):
-        res = {
-            'total': 0,
-            'filtered': 0,
-            'failed': 0
-        }
-        for test_id, test in self.tests.iteritems():
-            res['total'] += 1
-            if self.test_data[test_id].get('result_state') in self._test_fail_states:
-                res['failed'] += 1
-
-            if self.is_test_filtered(test):
-                res['filtered'] += 1
-
-        return res
-
-    def _get_tests(self, failed_only=True, filtered=True):
-        tests = self.ui.current_test_list if filtered else self.tests
-
-        return OrderedDict([(test_id, test) for test_id, test in tests.iteritems()
-                                  if not failed_only
-                                      or (failed_only and self.is_test_failed(test))])
-
 
 class UnittestRunner(Runner):
     def get_suite_tests(suite):
@@ -210,17 +175,9 @@ class PytestRunner(Runner):
         # self.tests[self.get_test_id(item)] = item
         self.pipe_send('item_collected', item_id=self.get_test_id(item))
 
-    def invalidate_test_results(self, tests):
-        for test_id, test in tests.iteritems():
-            self.clear_test_result(test_id)
-
     def run_tests(self, failed_only, filtered):
-        self._running_tests = True
-        tests = self._get_tests(failed_only, filtered)
-        self.invalidate_test_results(tests)
         pytest.main(['-p', 'no:terminal', self.path],
             plugins=[PytestPlugin(runner=self)])
-        self._running_tests = False
 
     def result_state(self, report):
         if not report:

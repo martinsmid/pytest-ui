@@ -103,68 +103,12 @@ class TestResultWindow(urwid.LineBox):
 
 
 
-class TestRunnerUI(object):
-    palette = [
-        ('reversed',    '',           'dark gray'),
-        ('edit',        '',           'dark blue',    '', '',     '#008'),
-        ('edit_focus',  '',           'light blue',   '', '',     '#00b'),
-        ('failed',      'light red',  '',             '', '',     '#b00'),
-        ('error',       'brown',      '',             '', '#f88', '#b00'),
-        ('skipped',     'light gray', '',             '', '#f88', '#b00'),
-        ('running',     'yellow',     'dark magenta',      '', '',     ''),
-        ('ok',          'dark green', '',             '', '',     ''),
-        ('statusline',  'white',      'dark blue',    '', '',     ''),
-    ]
-
-    def __init__(self, runner_class, path):
-        logger.info('Runner UI init')
-        urwid.set_encoding("UTF-8")
-
-        self.runner_class = runner_class
-        self.path = path
+class Store(object):
+    def __init__(self, ui):
         self.test_data = OrderedDict()
-
-        self.main_loop = None
-        self.w_main = None
+        self.ui = ui
         self.filter_regex = None
         self.filter_value = None
-        self._first_failed_focused = False
-        self._running_tests = False
-        self.child_pipe = None
-
-        self.init_main_screen()
-
-    def init_main_screen(self):
-        self.w_filter_edit = urwid.Edit('Filter ')
-        aw_filter_edit = urwid.AttrMap(self.w_filter_edit, 'edit', 'edit_focus')
-        self.w_status_line = urwid.AttrMap(StatusLine(self.get_test_stats), 'statusline', '')
-        urwid.connect_signal(self.w_filter_edit, 'change', self.on_filter_change)
-        self.init_test_listbox()
-        self.w_main = urwid.Padding(
-            urwid.Pile([
-                ('pack', urwid.Text(u'Python Urwid Test Runner', align='center')),
-                ('pack', urwid.Divider()),
-                ('pack', aw_filter_edit),
-                ('pack', urwid.Divider()),
-                self.w_test_listbox,
-                ('pack', urwid.Divider()),
-                ('pack', self.w_status_line),
-            ]),
-            left=2, right=2
-        )
-
-    def init_test_listbox(self):
-        self.w_test_listbox = self.test_listbox(self.current_test_list.keys())
-        if self.w_main:
-            self.w_status_line.original_widget._invalidate()
-            self.w_main.original_widget.widget_list[4] = self.w_test_listbox
-            self.w_main.original_widget._invalidate()
-
-    def init_test_data(self):
-        multiprocessing.Process(
-            target=self.runner_class.process_init_tests,
-            args=(self.path, self.child_pipe)
-        ).start()
 
     @property
     def current_test_list(self):
@@ -184,7 +128,50 @@ class TestRunnerUI(object):
             'failed': 1
         }
 
-    def on_filter_change(self, filter_widget, filter_value):
+    def item_collected(self, item_id):
+        self.test_data[item_id] = {
+            'id': item_id
+        }
+        self.ui.init_test_listbox()
+
+    def get_test_position(self, test_id):
+        return self.test_data[test_id]['position']
+
+    def _get_tests(self, failed_only=True, filtered=True):
+        tests = self.current_test_list if filtered else self.test_data
+
+        return OrderedDict([(test_id, test) for test_id, test in tests.iteritems()
+                                  if not failed_only
+                                      or (failed_only and self.is_test_failed(test))])
+
+    def set_test_result(self, test_id, result_state, output, when, outcome):
+        # Ignore success, except for the test run (call)
+        # ignore successive failure, take only the first
+        if not test_id in self.test_data:
+            self.test_data[test_id] = {}
+
+        test_data = self.test_data[test_id]
+        if (outcome != 'passed' or when == 'call') and not test_data.get('result_state', None):
+            test_data['result_state'] = result_state
+            test_data['output'] = output
+
+            self.ui.update_test_result(test_data)
+
+    def set_exception_info(self, test_id, exc_type, exc_value, extracted_traceback, result, when):
+        output = ''.join(
+            traceback.format_list(extracted_traceback) +
+            traceback.format_exception_only(exc_type, exc_value)
+        )
+
+        self.set_test_result(
+            test_id,
+            result,
+            output,
+            when,
+            'failed'
+        )
+
+    def set_filter(self, filter_value):
         self.filter_value = filter_value
         if not filter_value:
             self.filter_regex = None
@@ -194,6 +181,97 @@ class TestRunnerUI(object):
             )))
             self.filter_regex = re.compile(regexp_str, re.UNICODE + re.IGNORECASE)
 
+    def invalidate_test_results(self, tests):
+        for test_id, test in tests.iteritems():
+            self.clear_test_result(test_id)
+
+    def clear_test_result(self, test_id):
+        test_data = self.test_data[test_id]
+        test_data.update({
+            'result': None,
+            'output': '',
+            'result_state': ''
+        })
+
+    def is_test_failed(self, test_data):
+        # test_id = self.get_test_id(test)
+        # test_data = self.test_data.get(test_id)
+
+        failed = not test_data or test_data.get('result_state') in self.ui.runner_class._test_fail_states
+        # logger.debug('failed: %r %s', failed, test_id)
+        return failed
+
+    def is_test_filtered(self, test):
+        if not self.ui:
+            return True
+
+        return self.get_test_id(test) in self.ui.current_test_list.keys()
+
+
+class TestRunnerUI(object):
+    palette = [
+        ('reversed',    '',           'dark gray'),
+        ('edit',        '',           'dark blue',    '', '',     '#008'),
+        ('edit_focus',  '',           'light blue',   '', '',     '#00b'),
+        ('failed',      'light red',  '',             '', '',     '#b00'),
+        ('error',       'brown',      '',             '', '#f88', '#b00'),
+        ('skipped',     'light gray', '',             '', '#f88', '#b00'),
+        ('running',     'yellow',     'dark magenta',      '', '',     ''),
+        ('ok',          'dark green', '',             '', '',     ''),
+        ('statusline',  'white',      'dark blue',    '', '',     ''),
+    ]
+
+    def __init__(self, runner_class, path):
+        logger.info('Runner UI init')
+        urwid.set_encoding("UTF-8")
+
+        self.runner_class = runner_class
+        self.path = path
+        self.store = Store(self)
+
+        self.main_loop = None
+        self.w_main = None
+        self._first_failed_focused = False
+        self._running_tests = False
+        self.child_pipe = None
+
+        self.init_main_screen()
+
+    def init_main_screen(self):
+        self.w_filter_edit = urwid.Edit('Filter ')
+        aw_filter_edit = urwid.AttrMap(self.w_filter_edit, 'edit', 'edit_focus')
+        self.w_status_line = urwid.AttrMap(StatusLine(self.store.get_test_stats), 'statusline', '')
+        urwid.connect_signal(self.w_filter_edit, 'change', self.on_filter_change)
+        self.init_test_listbox()
+        self.w_main = urwid.Padding(
+            urwid.Pile([
+                ('pack', urwid.Text(u'Python Urwid Test Runner', align='center')),
+                ('pack', urwid.Divider()),
+                ('pack', aw_filter_edit),
+                ('pack', urwid.Divider()),
+                self.w_test_listbox,
+                ('pack', urwid.Divider()),
+                ('pack', self.w_status_line),
+            ]),
+            left=2, right=2
+        )
+
+    def init_test_listbox(self):
+        self.w_test_listbox = self.test_listbox(self.store.current_test_list.keys())
+        if self.w_main:
+            self.w_status_line.original_widget._invalidate()
+            self.w_main.original_widget.widget_list[4] = self.w_test_listbox
+            self.w_main.original_widget._invalidate()
+
+    def init_test_data(self):
+        multiprocessing.Process(
+            target=self.runner_class.process_init_tests,
+            args=(self.path, self.child_pipe)
+        ).start()
+
+
+    def on_filter_change(self, filter_widget, filter_value):
+        self.store.set_filter(filter_value)
         self.init_test_listbox()
         # self.w_main.original_widget._invalidate()
         # self.w_status_line.original_widget._invalidate()
@@ -218,18 +296,12 @@ class TestRunnerUI(object):
                 return
 
             if payload['method'] == 'item_collected':
-                self.item_collected(**payload['params'])
+                self.store.item_collected(**payload['params'])
             elif payload['method'] == 'set_test_result':
-                self.set_test_result(**payload['params'])
+                self.store.set_test_result(**payload['params'])
             elif payload['method'] == 'set_exception_info':
-                self.set_exception_info(**payload['params'])
+                self.store.set_exception_info(**payload['params'])
 
-
-    def item_collected(self, item_id):
-        self.test_data[item_id] = {
-            'id': item_id
-        }
-        self.init_test_listbox()
 
     def run(self):
         self.main_loop = urwid.MainLoop(self.w_main, palette=self.palette,
@@ -248,16 +320,20 @@ class TestRunnerUI(object):
             'center', ('relative', 90), 'middle', ('relative', 90)
         )
 
-    def _get_test_position(self, test_id):
-        return self.test_data[test_id]['position']
-
     def run_tests(self, failed_only=True, filtered=None):
+        if self._running_tests:
+            logger.info('Tests are already running')
+            return
+        self._running_tests = True
+
         if filtered is None:
-            filtered = self.filter_value
+            filtered = self.store.filter_value
 
         logger.info('Running tests (failed_only: %r, filtered: %r)', failed_only, filtered)
-        self._running_tests = True
         self._first_failed_focused = False
+
+        tests = self.store._get_tests(failed_only, filtered)
+        self.store.invalidate_test_results(tests)
 
         multiprocessing.Process(
             target=self.runner_class.process_run_tests,
@@ -297,41 +373,21 @@ class TestRunnerUI(object):
         self.w_status_line.original_widget._invalidate()
         self.main_loop.draw_screen()
 
-    def set_test_result(self, test_id, result_state, output):
-        test_data = self.test_data[test_id]
-        test_data['result_state'] = result_state
-        test_data['output'] = output
-
-        self.update_test_result(test_id)
-
-    def update_test_result(self, test_id):
-        test_data = self.test_data[test_id]
+    def update_test_result(self, test_data):
         display_result_state = test_data.get('result_state', '')
         if display_result_state in ['failed', 'error'] and not self._first_failed_focused:
-            self.w_test_listbox.set_focus(self._get_test_position(test_id))
+            self.w_test_listbox.set_focus(test_data.get('position'))
             self._first_failed_focused = True
 
-        self.test_data[test_id]['widget']._invalidate()
-        self.test_data[test_id]['lw_widget']._invalidate()
+        test_data['widget']._invalidate()
+        test_data['lw_widget']._invalidate()
         # self.w_test_listbox._invalidate()
         self.w_status_line.original_widget._invalidate()
 
         self.main_loop.draw_screen()
 
-    def set_exception_info(self, test_id, exc_type, exc_value, extracted_traceback, result):
-            output = ''.join(
-                traceback.format_list(extracted_traceback) +
-                traceback.format_exception_only(exc_type, exc_value)
-            )
-
-            self.set_test_result(
-                test_id,
-                result,
-                output
-            )
-
     def show_test_detail(self, widget, test_id):
-        test_data = self.test_data[test_id]
+        test_data = self.store.test_data[test_id]
         # if test has already been run
         if 'output' in test_data:
             output = test_data['output']
@@ -349,19 +405,19 @@ class TestRunnerUI(object):
         self.main_loop.widget = self._popup_original
 
     def get_list_item(self, test_id, position):
-        result_state_str = self.test_data[test_id].get('result_state', '')
-        self.test_data[test_id].update({
+        test_data = self.store.test_data[test_id]
+        test_data.update({
             'widget': None,
             'lw_widget': None,
             'position': position,
             'id': test_id,
-            'result_state': result_state_str
         })
-        test_line = TestLine(self.test_data[test_id])
-        self.test_data[test_id]['widget'] = test_line
+        test_line = TestLine(test_data)
+        test_data['widget'] = test_line
+        logger.debug('widget set for %s: %s', test_id, test_line)
         urwid.connect_signal(test_line, 'click', self.show_test_detail, test_id)
         test_line_attr = urwid.AttrMap(test_line, None, focus_map='reversed')
-        self.test_data[test_id]['lw_widget'] = test_line_attr
+        test_data['lw_widget'] = test_line_attr
         return test_line_attr
 
     def test_listbox(self, test_list):
@@ -376,7 +432,7 @@ class TestRunnerUI(object):
         test_id = tests.keys()[self.w_test_listbox.focus_position]
         next_id = self.get_failed_sibling(test_id, direction)
         if next_id is not None:
-            next_pos = self._get_test_position(next_id)
+            next_pos = self.store.get_test_position(next_id)
             self.w_test_listbox.set_focus(next_pos, 'above' if direction == 1 else 'below')
             self.w_test_listbox._invalidate()
 

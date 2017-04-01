@@ -27,12 +27,15 @@ class PytestPlugin(object):
     def pytest_runtest_makereport(self, item, call):
         logger.debug('pytest_runtest_makereport %s %s %s', item, call.when, str(type(call.excinfo)))
         if call.excinfo:
-            self.runner.set_exception_info(item.nodeid, call.excinfo)
+            self.runner.set_exception_info(item.nodeid, call.excinfo, call.when)
 
     def pytest_runtest_logreport(self, report):
         logger.debug('pytest_runtest_logreport %s', report)
-        if (report.outcome != 'passed' or report.when == 'teardown'):
-            self.runner.set_test_result(report.nodeid, report, report.capstdout + report.capstderr)
+        self.runner.set_test_result(
+            report.nodeid,
+            report,
+            getattr(report, 'capstdout', '') + getattr(report, 'capstderr', '')
+        )
 
     def pytest_collectreport(self, report):
         logger.debug('pytest_collectreport %s', report)
@@ -43,7 +46,7 @@ class PytestPlugin(object):
         # items[:] = filter(self.runner.is_test_filtered, items)
         # logger.debug('Filtered items %s', items)
 
-        def filtered_and_failed(test):
-            return self.runner.is_test_filtered(test) and self.runner.is_test_failed(test)
+        # def filtered_and_failed(test):
+        #     return self.runner.is_test_filtered(test) and self.runner.is_test_failed(test)
 
-        items[:] = filter(filtered_and_failed, items)
+        # items[:] = filter(filtered_and_failed, items)
