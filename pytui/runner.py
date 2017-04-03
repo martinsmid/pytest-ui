@@ -46,24 +46,36 @@ class RollbackImporter:
 
 
 class Runner(object):
-    def __init__(self, path='.', load_tests=True, write_pipe=None):
+    def __init__(self, path='.', write_pipe=None, pipe_size=None, pipe_semaphore=None):
         self.ui = None
         self.path = path
         self.tests = OrderedDict()
-        self.test_data = {}
         logger.debug('%s Init', self.__class__.__name__)
         self.write_pipe = os.fdopen(write_pipe, 'w', 0)
-        if load_tests:
-            self.init_tests()
-            self.init_test_data()
-
+        self.pipe_size = pipe_size
+        self.pipe_semaphore = pipe_semaphore
 
     def pipe_send(self, method, **kwargs):
-        logger.debug('writing to pipe %s(%s)', method, kwargs)
-        self.write_pipe.write('%s\n' % json.dumps({
+        data = '%s\n' % json.dumps({
                 'method': method,
                 'params': kwargs
-            }))
+        })
+        pipe_lock = self.pipe_size.get_lock()
+        data_size = len(data)
+        # logger.debug('writing to pipe %s(%s)', method, kwargs)
+        logger.debug('writing to pipe size: %s, pipe_size: %s',
+                     data_size, self.pipe_size.value)
+        # if the pipe would exceed 4000 bytes, wait for
+        # the other end to consume
+        # while self.pipe_size.value > 3500:
+        #     pass
+
+        if self.pipe_size.value + data_size > 400:
+            self.pipe_semaphore.acquire()
+
+        with pipe_lock:
+            self.write_pipe.write(data)
+            self.pipe_size.value += data_size
 
     def set_test_result(self, test_id, report, output):
         self.pipe_send('set_test_result',
@@ -108,10 +120,6 @@ class UnittestRunner(Runner):
         top_suite = loader.discover(self.path)
         self.tests = self.get_suite_tests(top_suite)
 
-    def init_test_data(self):
-        self.test_data = {test_id: {'suite': test} for test_id, test in self.tests.iteritems()}
-        logger.debug('Inited tests %s', self.test_data)
-
     def reload_tests(self):
         if self.rollbackImporter:
             self.rollbackImporter.uninstall()
@@ -152,24 +160,20 @@ class PytestRunner(Runner):
 
 
     @classmethod
-    def process_init_tests(cls, path, write_pipe):
+    def process_init_tests(cls, path, write_pipe, pipe_size, pipe_semaphore):
         logging_tools.configure('pytui-runner.log')
 
         """ Class method for running in separate process """
         logger.debug('Inside the runner process %s %s %s' % (cls, path, write_pipe))
-        runner = cls(path, write_pipe=write_pipe, load_tests=False)
+        runner = cls(path, write_pipe=write_pipe, pipe_size=pipe_size, pipe_semaphore=pipe_semaphore)
         runner.init_tests()
         logger.debug('Inside the runner process end')
 
     @classmethod
-    def process_run_tests(cls, path, failed_only, filtered, write_pipe):
+    def process_run_tests(cls, path, failed_only, filtered, write_pipe, pipe_size, pipe_semaphore):
         logging_tools.configure('pytui-runner.log')
-        runner = cls(path, write_pipe=write_pipe, load_tests=False)
+        runner = cls(path, write_pipe=write_pipe, pipe_size=pipe_size, pipe_semaphore=pipe_semaphore)
         runner.run_tests(failed_only, filtered)
-
-    def init_test_data(self):
-        self.test_data = {test_id: {'suite': test} for test_id, test in self.tests.iteritems()}
-        logger.debug('Inited %d tests', len(self.test_data))
 
     def item_collected(self, item):
         # self.tests[self.get_test_id(item)] = item

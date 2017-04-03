@@ -148,7 +148,9 @@ class Store(object):
         # Ignore success, except for the test run (call)
         # ignore successive failure, take only the first
         if not test_id in self.test_data:
-            self.test_data[test_id] = {}
+            self.test_data[test_id] = {
+                'id': test_id
+            }
 
         test_data = self.test_data[test_id]
         if (outcome != 'passed' or when == 'call') and not test_data.get('result_state', None):
@@ -234,6 +236,8 @@ class TestRunnerUI(object):
         self._first_failed_focused = False
         self._running_tests = False
         self.child_pipe = None
+        self.pipe_size = multiprocessing.Value('i', 0)
+        self.pipe_semaphore = multiprocessing.BoundedSemaphore(0)
 
         self.init_main_screen()
 
@@ -266,7 +270,7 @@ class TestRunnerUI(object):
     def init_test_data(self):
         multiprocessing.Process(
             target=self.runner_class.process_init_tests,
-            args=(self.path, self.child_pipe)
+            args=(self.path, self.child_pipe, self.pipe_size, self.pipe_semaphore)
         ).start()
 
 
@@ -282,7 +286,12 @@ class TestRunnerUI(object):
         """
             Parse data received by client and execute encoded action
         """
-        logger.debug('received_output %s', data)
+        with self.pipe_size.get_lock():
+            self.pipe_size.value -= len(data)
+
+        # logger.debug('received_output %s', data)
+        logger.debug('received_output size: %s, pipe_size: %s',
+                     len(data), self.pipe_size.value)
         for chunk in data.split('\n'):
             if not chunk:
                 continue
@@ -302,6 +311,12 @@ class TestRunnerUI(object):
             elif payload['method'] == 'set_exception_info':
                 self.store.set_exception_info(**payload['params'])
 
+        # release the write end if waiting for read
+        try:
+            self.pipe_semaphore.release()
+        except ValueError:
+            pass
+        # self.w_main._invalidate()
 
     def run(self):
         self.main_loop = urwid.MainLoop(self.w_main, palette=self.palette,
@@ -337,7 +352,7 @@ class TestRunnerUI(object):
 
         multiprocessing.Process(
             target=self.runner_class.process_run_tests,
-            args=(self.path, failed_only, filtered, self.child_pipe)
+            args=(self.path, failed_only, filtered, self.child_pipe, self.pipe_size, self.pipe_semaphore)
         ).start()
 
         self.w_test_listbox._invalidate()
@@ -376,13 +391,16 @@ class TestRunnerUI(object):
     def update_test_result(self, test_data):
         display_result_state = test_data.get('result_state', '')
         if display_result_state in ['failed', 'error'] and not self._first_failed_focused:
-            self.w_test_listbox.set_focus(test_data.get('position'))
+            self.w_test_listbox.set_focus(test_data.get('position', 0))
             self._first_failed_focused = True
 
-        test_data['widget']._invalidate()
-        test_data['lw_widget']._invalidate()
-        # self.w_test_listbox._invalidate()
-        self.w_status_line.original_widget._invalidate()
+        if test_data.get('widget'):
+            test_data['widget']._invalidate()
+            test_data['lw_widget']._invalidate()
+            # self.w_test_listbox._invalidate()
+            self.w_status_line.original_widget._invalidate()
+        else:
+            logger.warn('Test "%s" has no ui widget', test_data['id'])
 
         self.main_loop.draw_screen()
 
@@ -414,7 +432,7 @@ class TestRunnerUI(object):
         })
         test_line = TestLine(test_data)
         test_data['widget'] = test_line
-        logger.debug('widget set for %s: %s', test_id, test_line)
+        # logger.debug('widget set for %s: %s', test_id, test_line)
         urwid.connect_signal(test_line, 'click', self.show_test_detail, test_id)
         test_line_attr = urwid.AttrMap(test_line, None, focus_map='reversed')
         test_data['lw_widget'] = test_line_attr
