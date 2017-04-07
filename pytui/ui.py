@@ -237,7 +237,7 @@ class TestRunnerUI(object):
         self._running_tests = False
         self.child_pipe = None
         self.pipe_size = multiprocessing.Value('i', 0)
-        self.pipe_semaphore = multiprocessing.BoundedSemaphore(0)
+        self.pipe_semaphore = multiprocessing.Event()
 
         self.init_main_screen()
 
@@ -270,6 +270,7 @@ class TestRunnerUI(object):
     def init_test_data(self):
         multiprocessing.Process(
             target=self.runner_class.process_init_tests,
+            name='pytui-runner',
             args=(self.path, self.child_pipe, self.pipe_size, self.pipe_semaphore)
         ).start()
 
@@ -286,8 +287,12 @@ class TestRunnerUI(object):
         """
             Parse data received by client and execute encoded action
         """
+        logger.debug('received output start')
+        # release the write end if waiting for read
         with self.pipe_size.get_lock():
             self.pipe_size.value -= len(data)
+        self.pipe_semaphore.set()
+
 
         # logger.debug('received_output %s', data)
         logger.debug('received_output size: %s, pipe_size: %s',
@@ -311,11 +316,6 @@ class TestRunnerUI(object):
             elif payload['method'] == 'set_exception_info':
                 self.store.set_exception_info(**payload['params'])
 
-        # release the write end if waiting for read
-        try:
-            self.pipe_semaphore.release()
-        except ValueError:
-            pass
         # self.w_main._invalidate()
 
     def run(self):
@@ -352,6 +352,7 @@ class TestRunnerUI(object):
 
         multiprocessing.Process(
             target=self.runner_class.process_run_tests,
+            name='pytui-runner',
             args=(self.path, failed_only, filtered, self.child_pipe, self.pipe_size, self.pipe_semaphore)
         ).start()
 
@@ -454,9 +455,14 @@ class TestRunnerUI(object):
             self.w_test_listbox.set_focus(next_pos, 'above' if direction == 1 else 'below')
             self.w_test_listbox._invalidate()
 
+    def quit(self):
+        self.pipe_semaphore.set()
+        logger.debug('releasing semaphore')
+        raise urwid.ExitMainLoop()
+
     def unhandled_keypress(self, key):
         if key in ('q', 'Q'):
-            raise urwid.ExitMainLoop()
+            self.quit()
         elif key == '/':
             self.w_main.original_widget.set_focus(2)
         elif key == 'ctrl f':

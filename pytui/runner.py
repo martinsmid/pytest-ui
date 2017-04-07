@@ -62,20 +62,18 @@ class Runner(object):
         })
         pipe_lock = self.pipe_size.get_lock()
         data_size = len(data)
-        # logger.debug('writing to pipe %s(%s)', method, kwargs)
         logger.debug('writing to pipe size: %s, pipe_size: %s',
                      data_size, self.pipe_size.value)
-        # if the pipe would exceed 4000 bytes, wait for
-        # the other end to consume
-        # while self.pipe_size.value > 3500:
-        #     pass
 
-        if self.pipe_size.value + data_size > 400:
-            self.pipe_semaphore.acquire()
+        if self.pipe_size.value + data_size >= 512:
+            logger.debug('waiting for reader')
+            self.pipe_semaphore.clear()
+            self.pipe_semaphore.wait()
+            logger.debug('reader finished')
 
         with pipe_lock:
-            self.write_pipe.write(data)
             self.pipe_size.value += data_size
+            self.write_pipe.write(data)
 
     def set_test_result(self, test_id, report, output):
         self.pipe_send('set_test_result',
