@@ -41,7 +41,8 @@ class PytestPlugin(object):
         logger.debug('pytest_collectreport %s', report)
 
     def pytest_collection_modifyitems(self, session, config, items):
-        logger.debug('pytest_collection_modifyitems %s %s %s', session, config, items)
+        pass
+        # logger.debug('pytest_collection_modifyitems %s %s %s', session, config, items)
 
         # items[:] = filter(self.runner.is_test_filtered, items)
         # logger.debug('Filtered items %s', items)

@@ -178,7 +178,10 @@ class PytestRunner(Runner):
         self.pipe_send('item_collected', item_id=self.get_test_id(item))
 
     def run_tests(self, failed_only, filtered):
-        pytest.main(['-p', 'no:terminal', self.path],
+        args = ['-p', 'no:terminal', self.path]
+        if failed_only:
+            args.append('--lf')
+        pytest.main(args,
             plugins=[PytestPlugin(runner=self)])
 
     def result_state(self, report):

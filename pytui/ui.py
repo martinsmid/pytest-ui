@@ -33,7 +33,6 @@ class TestLine(urwid.Widget):
 
     def render(self, size, focus=False):
         result_state_str = self.test_data.get('result_state', '')
-        # logger.debug('rendering %s', self.test_data)
         (maxcol,) = size
         attr = []
         title_width = maxcol - 13
@@ -129,6 +128,10 @@ class Store(object):
         }
 
     def item_collected(self, item_id):
+        if item_id in self.test_data:
+            logger.debug('Ignoring collect for %s', item_id)
+            return
+
         self.test_data[item_id] = {
             'id': item_id
         }
@@ -139,7 +142,6 @@ class Store(object):
 
     def _get_tests(self, failed_only=True, filtered=True):
         tests = self.current_test_list if filtered else self.test_data
-
         return OrderedDict([(test_id, test) for test_id, test in tests.iteritems()
                                   if not failed_only
                                       or (failed_only and self.is_test_failed(test))])
@@ -153,7 +155,7 @@ class Store(object):
             }
 
         test_data = self.test_data[test_id]
-        if (outcome != 'passed' or when == 'call') and not test_data.get('result_state', None):
+        if (outcome != 'passed' or when == 'call') and not test_data.get('result_state'):
             test_data['result_state'] = result_state
             test_data['output'] = output
 
@@ -194,13 +196,11 @@ class Store(object):
             'output': '',
             'result_state': ''
         })
+        test_data['widget'].test_data['result_state'] = ''
+        test_data['widget']._invalidate()
 
     def is_test_failed(self, test_data):
-        # test_id = self.get_test_id(test)
-        # test_data = self.test_data.get(test_id)
-
         failed = not test_data or test_data.get('result_state') in self.ui.runner_class._test_fail_states
-        # logger.debug('failed: %r %s', failed, test_id)
         return failed
 
     def is_test_filtered(self, test):
@@ -291,8 +291,6 @@ class TestRunnerUI(object):
         # release the write end if waiting for read
         with self.pipe_size.get_lock():
             self.pipe_size.value -= len(data)
-        self.pipe_semaphore.set()
-
 
         # logger.debug('received_output %s', data)
         logger.debug('received_output size: %s, pipe_size: %s',
@@ -317,6 +315,8 @@ class TestRunnerUI(object):
                 self.store.set_exception_info(**payload['params'])
 
         # self.w_main._invalidate()
+        self.pipe_semaphore.set()
+
 
     def run(self):
         self.main_loop = urwid.MainLoop(self.w_main, palette=self.palette,
