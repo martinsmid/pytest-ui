@@ -209,6 +209,25 @@ class Store(object):
 
         return self.get_test_id(test) in self.ui.current_test_list.keys()
 
+    def get_failed_sibling(self, test_id, direction):
+        tests = self._get_tests(True, True)
+        keys = tests.keys()
+        try:
+            next_pos = keys.index(test_id) + direction
+        except ValueError as e:
+            return None
+
+        if not (next_pos >= 0 and next_pos < len(keys)):
+            return None
+
+        return keys[next_pos]
+
+    def get_next_failed(self, test_id):
+        return self.get_failed_sibling(test_id, 1)
+
+    def get_previous_failed(self, test_id):
+        return self.get_failed_sibling(test_id, -1)
+
 
 class TestRunnerUI(object):
     palette = [
@@ -447,9 +466,9 @@ class TestRunnerUI(object):
         return urwid.ListBox(urwid.SimpleFocusListWalker(list_items))
 
     def focus_failed_sibling(self, direction):
-        tests = self._get_tests(False, True)
+        tests = self.store._get_tests(False, True)
         test_id = tests.keys()[self.w_test_listbox.focus_position]
-        next_id = self.get_failed_sibling(test_id, direction)
+        next_id = self.store.get_failed_sibling(test_id, direction)
         if next_id is not None:
             next_pos = self.store.get_test_position(next_id)
             self.w_test_listbox.set_focus(next_pos, 'above' if direction == 1 else 'below')

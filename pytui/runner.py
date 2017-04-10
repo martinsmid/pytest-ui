@@ -197,21 +197,3 @@ class PytestRunner(Runner):
         logger.warn('Unknown report outcome %s', report.outcome)
         return 'N/A'
 
-    def get_failed_sibling(self, test_id, direction):
-        tests = self._get_tests(True, True)
-        keys = tests.keys()
-        try:
-            next_pos = keys.index(test_id) + direction
-        except ValueError as e:
-            return None
-
-        if not (next_pos >= 0 and next_pos < len(keys)):
-            return None
-
-        return keys[next_pos]
-
-    def get_next_failed(self, test_id):
-        return self.get_failed_sibling(test_id, 1)
-
-    def get_previous_failed(self, test_id):
-        return self.get_failed_sibling(test_id, -1)
