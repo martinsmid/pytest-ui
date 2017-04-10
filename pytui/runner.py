@@ -65,7 +65,7 @@ class Runner(object):
         logger.debug('writing to pipe size: %s, pipe_size: %s',
                      data_size, self.pipe_size.value)
 
-        if self.pipe_size.value + data_size >= 512:
+        if self.pipe_size.value + data_size >= 4096:
             logger.debug('waiting for reader')
             self.pipe_semaphore.clear()
             self.pipe_semaphore.wait()
@@ -85,12 +85,12 @@ class Runner(object):
         )
 
     def set_exception_info(self, test_id, excinfo, when):
-        exc_type, exc_value, exc_traceback = sys.exc_info()
+        exc_type, exc_value, exc_traceback = excinfo._excinfo
         extracted_traceback = traceback.extract_tb(exc_traceback)
         self.pipe_send('set_exception_info',
             test_id=test_id,
-            exc_type=exc_type,
-            exc_value=exc_value,
+            exc_type='TODO',
+            exc_value=traceback.format_exception_only(exc_type, exc_value)[-1],
             extracted_traceback=extracted_traceback,
             result='failed',
             when=when

@@ -155,18 +155,17 @@ class Store(object):
             }
 
         test_data = self.test_data[test_id]
-        if (outcome != 'passed' or when == 'call') and not test_data.get('result_state'):
+        if (outcome != 'passed' or when == 'call') \
+            and not test_data.get('result_state'):
             test_data['result_state'] = result_state
             test_data['output'] = output
-
             self.ui.update_test_result(test_data)
 
     def set_exception_info(self, test_id, exc_type, exc_value, extracted_traceback, result, when):
         output = ''.join(
             traceback.format_list(extracted_traceback) +
-            traceback.format_exception_only(exc_type, exc_value)
+            [exc_value]
         )
-
         self.set_test_result(
             test_id,
             result,
@@ -317,24 +316,26 @@ class TestRunnerUI(object):
         for chunk in data.split('\n'):
             if not chunk:
                 continue
-            logger.debug('parsing chunk %s', chunk)
             try:
                 payload = json.loads(chunk)
                 assert 'method' in payload
                 assert 'params' in payload
             except Exception as e:
-                logger.exception('Failed to parse runner input')
+                logger.exception('Failed to parse runner input: \n"%s"\n', chunk)
                 return
 
-            if payload['method'] == 'item_collected':
-                self.store.item_collected(**payload['params'])
-            elif payload['method'] == 'set_test_result':
-                self.store.set_test_result(**payload['params'])
-            elif payload['method'] == 'set_exception_info':
-                self.store.set_exception_info(**payload['params'])
+            try:
+                if payload['method'] == 'item_collected':
+                    self.store.item_collected(**payload['params'])
+                elif payload['method'] == 'set_test_result':
+                    self.store.set_test_result(**payload['params'])
+                elif payload['method'] == 'set_exception_info':
+                    self.store.set_exception_info(**payload['params'])
+            except:
+                logger.exception('Error in handler "%s"', payload['method'])
 
-        # self.w_main._invalidate()
         self.pipe_semaphore.set()
+        # self.w_main._invalidate()
 
 
     def run(self):
@@ -426,18 +427,16 @@ class TestRunnerUI(object):
 
     def show_test_detail(self, widget, test_id):
         test_data = self.store.test_data[test_id]
-        # if test has already been run
-        if 'output' in test_data:
-            output = test_data['output']
-        if 'exc_info' in test_data:
-            output += '\n' + '-'*20 + '\n'
-            output += '\n'.join(traceback.format_tb(test_data['exc_info'].tb))
+        output = test_data.get('output', '')
+        # if 'exc_info' in test_data:
+        #     output += '\n' + '-'*20 + '\n'
+        #     output += '\n'.join(traceback.format_tb(test_data['exc_info'].tb))
 
-            result_window = TestResultWindow(
-                output,
-                self.popup_close)
-            self.popup(result_window)
-            result_window.set_focus(0)
+        result_window = TestResultWindow(
+            output,
+            self.popup_close)
+        self.popup(result_window)
+        result_window.set_focus(0)
 
     def popup_close(self):
         self.main_loop.widget = self._popup_original
