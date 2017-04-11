@@ -168,21 +168,23 @@ class PytestRunner(Runner):
         logger.debug('Inside the runner process end')
 
     @classmethod
-    def process_run_tests(cls, path, failed_only, filtered, write_pipe, pipe_size, pipe_semaphore):
+    def process_run_tests(cls, path, failed_only, filtered, write_pipe,
+                          pipe_size, pipe_semaphore, filter_value):
         logging_tools.configure('pytui-runner.log')
-        runner = cls(path, write_pipe=write_pipe, pipe_size=pipe_size, pipe_semaphore=pipe_semaphore)
-        runner.run_tests(failed_only, filtered)
+        runner = cls(path, write_pipe=write_pipe, pipe_size=pipe_size,
+                     pipe_semaphore=pipe_semaphore)
+        runner.run_tests(failed_only, filter_value)
 
     def item_collected(self, item):
         # self.tests[self.get_test_id(item)] = item
         self.pipe_send('item_collected', item_id=self.get_test_id(item))
 
-    def run_tests(self, failed_only, filtered):
+    def run_tests(self, failed_only, filter_value):
         args = ['-p', 'no:terminal', self.path]
         if failed_only:
             args.append('--lf')
         pytest.main(args,
-            plugins=[PytestPlugin(runner=self)])
+            plugins=[PytestPlugin(runner=self, filter_value=filter_value)])
 
     def result_state(self, report):
         if not report:

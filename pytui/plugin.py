@@ -1,4 +1,6 @@
 import logging_tools
+from common import get_filter_regex
+
 
 logger = logging_tools.get_logger(__name__)
 
@@ -14,8 +16,9 @@ def pytest_configure(config):
 
 
 class PytestPlugin(object):
-    def __init__(self, runner, config=None):
+    def __init__(self, runner, filter_value=None, config=None):
         self.runner = runner
+        self.filter_regex = get_filter_regex(filter_value)
 
     def pytest_runtest_protocol(self, item, nextitem):
         logger.debug('pytest_runtest_protocol %s %s', item, nextitem)
@@ -41,13 +44,10 @@ class PytestPlugin(object):
         logger.debug('pytest_collectreport %s', report)
 
     def pytest_collection_modifyitems(self, session, config, items):
-        pass
         # logger.debug('pytest_collection_modifyitems %s %s %s', session, config, items)
+        def is_filtered(item):
+            return self.filter_regex.findall(self.runner.get_test_id(item))
 
-        # items[:] = filter(self.runner.is_test_filtered, items)
-        # logger.debug('Filtered items %s', items)
+        if self.filter_regex:
+            items[:] = filter(is_filtered, items)
 
-        # def filtered_and_failed(test):
-        #     return self.runner.is_test_filtered(test) and self.runner.is_test_failed(test)
-
-        # items[:] = filter(filtered_and_failed, items)

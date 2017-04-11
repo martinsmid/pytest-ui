@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-import re
 import json
 import urwid
 import thread
+from common import get_filter_regex
 import logging
 import traceback
 import multiprocessing
@@ -176,13 +176,7 @@ class Store(object):
 
     def set_filter(self, filter_value):
         self.filter_value = filter_value
-        if not filter_value:
-            self.filter_regex = None
-        else:
-            regexp_str = '.*?'.join(list(iter(
-                filter_value.replace('.', '\.').replace(r'\\', '\\\\')
-            )))
-            self.filter_regex = re.compile(regexp_str, re.UNICODE + re.IGNORECASE)
+        self.filter_regex = get_filter_regex(filter_value)
 
     def invalidate_test_results(self, tests):
         for test_id, test in tests.iteritems():
@@ -373,7 +367,8 @@ class TestRunnerUI(object):
         multiprocessing.Process(
             target=self.runner_class.process_run_tests,
             name='pytui-runner',
-            args=(self.path, failed_only, filtered, self.child_pipe, self.pipe_size, self.pipe_semaphore)
+            args=(self.path, failed_only, filtered, self.child_pipe, self.pipe_size,
+                  self.pipe_semaphore, self.store.filter_value)
         ).start()
 
         self.w_test_listbox._invalidate()
