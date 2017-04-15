@@ -84,6 +84,12 @@ class Runner(object):
             outcome=report.outcome
         )
 
+    def set_test_state(self, test_id, state):
+        self.pipe_send('set_test_state',
+            test_id=test_id,
+            state=state
+        )
+
     def set_exception_info(self, test_id, excinfo, when):
         exc_type, exc_value, exc_traceback = excinfo._excinfo
         extracted_traceback = traceback.extract_tb(exc_traceback)

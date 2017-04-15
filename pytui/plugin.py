@@ -23,6 +23,25 @@ class PytestPlugin(object):
     def pytest_runtest_protocol(self, item, nextitem):
         logger.debug('pytest_runtest_protocol %s %s', item, nextitem)
 
+
+    def pytest_runtest_setup(self, item):
+        self.runner.set_test_state(
+            item.nodeid,
+            'setup'
+        )
+
+    def pytest_runtest_call(self, item):
+        self.runner.set_test_state(
+            item.nodeid,
+            'call'
+        )
+
+    def pytest_runtest_teardown(self, item):
+        self.runner.set_test_state(
+            item.nodeid,
+            'teardown'
+        )
+
     def pytest_itemcollected(self, item):
         logger.debug('pytest_itemcollected %s', item)
         self.runner.item_collected(item)

@@ -25,7 +25,6 @@ class TestLine(urwid.Widget):
 
     def __init__(self, test_data, *args, **kwargs):
         self.test_data = test_data
-        self._is_running = False
         super(TestLine, self).__init__(*args, **kwargs)
 
     def rows(self, size, focus=False):
@@ -36,10 +35,16 @@ class TestLine(urwid.Widget):
         (maxcol,) = size
         attr = []
         title_width = maxcol - 13
-        main_attr = ('running', title_width) if self._is_running else (None, title_width)
+        main_attr = (self.test_data.get('runstate'), title_width)
         state_attr = (result_state_str, 10)
-        return urwid.TextCanvas(['{} [{:10}]'.format(self.test_data['id'][:title_width].ljust(title_width), result_state_str[:10])],
-            maxcol=maxcol, attr=[[main_attr, (None, 2), state_attr, (None, 1)]])
+        return urwid.TextCanvas(
+            ['{} [{:10}]'.format(
+                self.test_data['id'][:title_width].ljust(title_width),
+                result_state_str[:10]
+            )],
+            maxcol=maxcol,
+            attr=[[main_attr, (None, 2), state_attr, (None, 1)]]
+        )
 
     def keypress(self, size, key):
         if key == 'enter':
@@ -124,7 +129,7 @@ class Store(object):
         return {
             'total': len(self.test_data),
             'filtered': len(self.current_test_list),
-            'failed': 1
+            'failed': self.get_failed_test_count()
         }
 
     def item_collected(self, item_id):
@@ -140,6 +145,11 @@ class Store(object):
     def get_test_position(self, test_id):
         return self.test_data[test_id]['position']
 
+
+    def get_failed_test_count(self):
+        return len([test_id for test_id, test in self.current_test_list.iteritems()
+                        if self.is_test_failed(test)])
+
     def _get_tests(self, failed_only=True, filtered=True):
         tests = self.current_test_list if filtered else self.test_data
         return OrderedDict([(test_id, test) for test_id, test in tests.iteritems()
@@ -147,19 +157,29 @@ class Store(object):
                                       or (failed_only and self.is_test_failed(test))])
 
     def set_test_result(self, test_id, result_state, output, when, outcome):
-        # Ignore success, except for the test run (call)
-        # ignore successive failure, take only the first
         if not test_id in self.test_data:
             self.test_data[test_id] = {
                 'id': test_id
             }
 
         test_data = self.test_data[test_id]
+        # Ignore success, except for the test run (call)
+        # ignore successive failure, take only the first
         if (outcome != 'passed' or when == 'call') \
             and not test_data.get('result_state'):
             test_data['result_state'] = result_state
             test_data['output'] = output
             self.ui.update_test_result(test_data)
+
+        if when == 'teardown':
+            test_data['runstate'] = None
+            self.ui.update_test_line(test_data)
+
+    def set_test_state(self, test_id, state):
+        test_data = self.test_data[test_id]
+        test_data['runstate'] = state
+
+        self.ui.update_test_line(test_data)
 
     def set_exception_info(self, test_id, exc_type, exc_value, extracted_traceback, result, when):
         output = ''.join(
@@ -227,12 +247,19 @@ class TestRunnerUI(object):
         ('reversed',    '',           'dark gray'),
         ('edit',        '',           'dark blue',    '', '',     '#008'),
         ('edit_focus',  '',           'light blue',   '', '',     '#00b'),
+        ('statusline',  'white',      'dark blue',    '', '',     ''),
+
+        # result states
         ('failed',      'light red',  '',             '', '',     '#b00'),
         ('error',       'brown',      '',             '', '#f88', '#b00'),
         ('skipped',     'light gray', '',             '', '#f88', '#b00'),
-        ('running',     'yellow',     'dark magenta',      '', '',     ''),
         ('ok',          'dark green', '',             '', '',     ''),
-        ('statusline',  'white',      'dark blue',    '', '',     ''),
+
+
+        # run states
+        ('setup',       'black',      'dark green',          '', '',     ''),
+        ('call',        'black',      'dark green',        '', '',     ''),
+        ('teardown',    'black',      'dark green',         '', '',     ''),
     ]
 
     def __init__(self, runner_class, path):
@@ -334,6 +361,8 @@ class TestRunnerUI(object):
                     self.store.set_test_result(**payload['params'])
                 elif payload['method'] == 'set_exception_info':
                     self.store.set_exception_info(**payload['params'])
+                elif payload['method'] == 'set_test_state':
+                    self.store.set_test_state(**payload['params'])
             except:
                 logger.exception('Error in handler "%s"', payload['method'])
 
@@ -386,7 +415,6 @@ class TestRunnerUI(object):
         self._running_tests = False
 
     def _run_test(self, test_id):
-        self.test_data[test_id]['widget']._is_running = True
         self.test_data[test_id]['widget']._invalidate()
 
         # self.w_test_listbox._invalidate()
@@ -406,7 +434,6 @@ class TestRunnerUI(object):
         sys.stdout = _orig_stdout
         sys.stderr = _orig_stderr
 
-        self.test_data[test_id]['widget']._is_running = False
         self.test_data[test_id]['widget']._invalidate()
         # self.w_test_listbox._invalidate()
         # self.w_main._invalidate()
@@ -428,6 +455,12 @@ class TestRunnerUI(object):
             logger.warn('Test "%s" has no ui widget', test_data['id'])
 
         self.main_loop.draw_screen()
+
+    def update_test_line(self, test_data):
+        if test_data.get('widget'):
+            test_data['widget']._invalidate()
+            test_data['lw_widget']._invalidate()
+            self.main_loop.draw_screen()
 
     def show_test_detail(self, widget, test_id):
         test_data = self.store.test_data[test_id]
