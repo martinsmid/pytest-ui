@@ -247,9 +247,12 @@ class TestRunnerUI(object):
         self.w_main = None
         self._first_failed_focused = False
         self._running_tests = False
+
+        # process comm
         self.child_pipe = None
         self.pipe_size = multiprocessing.Value('i', 0)
         self.pipe_semaphore = multiprocessing.Event()
+        self.receive_buffer = ''
 
         self.init_main_screen()
 
@@ -311,11 +314,17 @@ class TestRunnerUI(object):
             if not chunk:
                 continue
             try:
+                if self.receive_buffer:
+                    chunk = self.receive_buffer + chunk
+                    logger.debug('Using buffer')
+                    self.receive_buffer = ''
+
                 payload = json.loads(chunk)
                 assert 'method' in payload
                 assert 'params' in payload
             except Exception as e:
                 logger.exception('Failed to parse runner input: \n"%s"\n', chunk)
+                self.receive_buffer += chunk
                 return
 
             try:
