@@ -12,10 +12,10 @@ setup(
     author='Martin Smid',
     entry_points={
         'pytest11': [
-            'pytui = pytui.runner',
+            'pytui = pytui.plugin',
         ],
         'console_scripts': [
-            'pytui = pytui.runner:main',
+            'pytui = pytui.ui:main',
         ]
     },
     install_requires=['urwid>=1.3.1', 'pytest>=3.0.5'],

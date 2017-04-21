@@ -1,5 +1,5 @@
 import unittest
-
+import pytest
 
 class TestD(unittest.TestCase):
     def test_feat_1_case_1(self):
@@ -12,5 +12,6 @@ class TestD(unittest.TestCase):
     def test_feat_1_case_3(self):
         pass
 
+    @pytest.mark.skip
     def test_feat_1_case_4(self):
         pass

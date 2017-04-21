@@ -1,10 +1,21 @@
+import logging
 import logging.config
 
-def configure():
+configured = False
+
+def get_logger(name):
+    return logging.getLogger('project.{}'.format(name))
+
+def configure(filename):
+    if configured:
+        return False
+
     logging_dict = {
         'version': 1,
         'formatters': {
-
+            'process': {
+                'format': '%(process)10d %(levelname)10s %(message)s',
+            }
         },
         'handlers': {
             'default': {
@@ -12,12 +23,13 @@ def configure():
             },
             'logfile': {
                 'class': 'logging.FileHandler',
-                'filename': 'putr.log',
+                'formatter': 'process',
+                'filename': filename,
                 'mode': 'w+',
             }
         },
         'loggers': {
-            '__main__': {
+            'project': {
                 'handlers': ['logfile'],
                 'level': 'DEBUG',
             }
