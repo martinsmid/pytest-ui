@@ -234,14 +234,9 @@ class Store(object):
 
         while True:
             next_pos = next_pos + direction
-            logger.debug(next_pos)
             if not (next_pos >= 0 and next_pos < len(keys)):
                 return None
 
-            logger.debug(keys[next_pos])
-            logger.debug(tests[keys[next_pos]])
-            logger.debug(tests[keys[next_pos]])
-            logger.debug(self.is_test_failed(tests[keys[next_pos]]))
             if self.is_test_failed(tests[keys[next_pos]]):
                 return keys[next_pos]
 
