@@ -5,16 +5,6 @@ from common import get_filter_regex
 logger = logging_tools.get_logger(__name__)
 
 
-def pytest_configure(config):
-    """Activate the plugin."""
-
-    if config.getvalue('pytui'):
-        runner = PytestRunner('.') # TODO: get path, if needed
-        plugin = PytestPlugin(config, runner)
-
-        config.pluginmanager.register(plugin, '_pytui')
-
-
 class PytestPlugin(object):
     def __init__(self, runner, filter_value=None, config=None):
         self.runner = runner
