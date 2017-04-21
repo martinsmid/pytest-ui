@@ -77,7 +77,7 @@ class StatusLine(urwid.Widget):
 class TestResultWindow(urwid.LineBox):
     _sizing = frozenset(['box'])
 
-    def __init__(self, text, escape_method):
+    def __init__(self, test_id, text, escape_method):
         self.escape_method = escape_method
 
         lines = text.split('\n')
@@ -88,7 +88,8 @@ class TestResultWindow(urwid.LineBox):
         super(TestResultWindow, self).__init__(
             urwid.ListBox(
                 urwid.SimpleFocusListWalker(list_items)
-            )
+            ),
+            title=test_id
         )
 
     def keypress(self, size, key):
@@ -222,18 +223,27 @@ class Store(object):
 
         return self.get_test_id(test) in self.ui.current_test_list.keys()
 
-    def get_failed_sibling(self, test_id, direction):
-        tests = self._get_tests(True, True)
+    def get_failed_sibling(self, position, direction):
+        """
+            position is the position in ui listbox, and should be
+            equal to position in the list of filtered tests
+        """
+        tests = self._get_tests(False, True)
         keys = tests.keys()
-        try:
-            next_pos = keys.index(test_id) + direction
-        except ValueError as e:
-            return None
+        next_pos = position
 
-        if not (next_pos >= 0 and next_pos < len(keys)):
-            return None
+        while True:
+            next_pos = next_pos + direction
+            logger.debug(next_pos)
+            if not (next_pos >= 0 and next_pos < len(keys)):
+                return None
 
-        return keys[next_pos]
+            logger.debug(keys[next_pos])
+            logger.debug(tests[keys[next_pos]])
+            logger.debug(tests[keys[next_pos]])
+            logger.debug(self.is_test_failed(tests[keys[next_pos]]))
+            if self.is_test_failed(tests[keys[next_pos]]):
+                return keys[next_pos]
 
     def get_next_failed(self, test_id):
         return self.get_failed_sibling(test_id, 1)
@@ -273,13 +283,13 @@ class TestRunnerUI(object):
         self.main_loop = None
         self.w_main = None
         self._first_failed_focused = False
-        self._running_tests = False
 
         # process comm
         self.child_pipe = None
         self.pipe_size = multiprocessing.Value('i', 0)
         self.pipe_semaphore = multiprocessing.Event()
         self.receive_buffer = ''
+        self.runner_process = None
 
         self.init_main_screen()
 
@@ -310,11 +320,16 @@ class TestRunnerUI(object):
             self.w_main.original_widget._invalidate()
 
     def init_test_data(self):
-        multiprocessing.Process(
+        if self.runner_process and self.runner_process.is_alive():
+            logger.info('Tests are already running')
+            return
+
+        self.runner_process = multiprocessing.Process(
             target=self.runner_class.process_init_tests,
             name='pytui-runner',
             args=(self.path, self.child_pipe, self.pipe_size, self.pipe_semaphore)
-        ).start()
+        )
+        self.runner_process.start()
 
 
     def on_filter_change(self, filter_widget, filter_value):
@@ -350,7 +365,7 @@ class TestRunnerUI(object):
                 assert 'method' in payload
                 assert 'params' in payload
             except Exception as e:
-                logger.exception('Failed to parse runner input: \n"%s"\n', chunk)
+                logger.debug('Failed to parse runner input: \n"%s"\n', chunk)
                 self.receive_buffer += chunk
                 return
 
@@ -384,14 +399,13 @@ class TestRunnerUI(object):
         self.main_loop.widget = urwid.Overlay(
             widget,
             self._popup_original,
-            'center', ('relative', 90), 'middle', ('relative', 90)
+            'center', ('relative', 90), 'middle', ('relative', 85)
         )
 
     def run_tests(self, failed_only=True, filtered=None):
-        if self._running_tests:
+        if self.runner_process and self.runner_process.is_alive():
             logger.info('Tests are already running')
             return
-        self._running_tests = True
 
         if filtered is None:
             filtered = self.store.filter_value
@@ -402,17 +416,17 @@ class TestRunnerUI(object):
         tests = self.store._get_tests(failed_only, filtered)
         self.store.invalidate_test_results(tests)
 
-        multiprocessing.Process(
+        self.runner_process = multiprocessing.Process(
             target=self.runner_class.process_run_tests,
             name='pytui-runner',
             args=(self.path, failed_only, filtered, self.child_pipe, self.pipe_size,
                   self.pipe_semaphore, self.store.filter_value)
-        ).start()
+        )
+        self.runner_process.start()
 
-        self.w_test_listbox._invalidate()
-        self.w_main._invalidate()
-        self.main_loop.draw_screen()
-        self._running_tests = False
+        # self.w_test_listbox._invalidate()
+        # self.w_main._invalidate()
+        # self.main_loop.draw_screen()
 
     def _run_test(self, test_id):
         self.test_data[test_id]['widget']._invalidate()
@@ -470,6 +484,7 @@ class TestRunnerUI(object):
         #     output += '\n'.join(traceback.format_tb(test_data['exc_info'].tb))
 
         result_window = TestResultWindow(
+            test_id,
             output,
             self.popup_close)
         self.popup(result_window)
@@ -502,9 +517,7 @@ class TestRunnerUI(object):
         return urwid.ListBox(urwid.SimpleFocusListWalker(list_items))
 
     def focus_failed_sibling(self, direction):
-        tests = self.store._get_tests(False, True)
-        test_id = tests.keys()[self.w_test_listbox.focus_position]
-        next_id = self.store.get_failed_sibling(test_id, direction)
+        next_id = self.store.get_failed_sibling(self.w_test_listbox.focus_position, direction)
         if next_id is not None:
             next_pos = self.store.get_test_position(next_id)
             self.w_test_listbox.set_focus(next_pos, 'above' if direction == 1 else 'below')
@@ -512,6 +525,8 @@ class TestRunnerUI(object):
 
     def quit(self):
         self.pipe_semaphore.set()
+        if self.runner_process and self.runner_process.is_alive():
+            self.runner_process.terminate()
         logger.debug('releasing semaphore')
         raise urwid.ExitMainLoop()
 
@@ -524,11 +539,9 @@ class TestRunnerUI(object):
             self.w_filter_edit.set_edit_text('')
             self.w_main.original_widget.set_focus(2)
         elif key == 'R':
-            if not self._running_tests:
-                self.run_tests(False)
+            self.run_tests(False)
         elif key == 'r' or key == 'f5':
-            if not self._running_tests:
-                self.run_tests(True)
+            self.run_tests(True)
         elif key == 'meta down':
             self.focus_failed_sibling(1)
 
