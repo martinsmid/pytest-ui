@@ -165,6 +165,8 @@ class PytestRunner(Runner):
 
     @classmethod
     def process_init_tests(cls, path, write_pipe, pipe_size, pipe_semaphore):
+        sys.stdout = StringIO()
+        sys.stderr = StringIO()
         logging_tools.configure('pytui-runner.log')
 
         """ Class method for running in separate process """
@@ -176,6 +178,8 @@ class PytestRunner(Runner):
     @classmethod
     def process_run_tests(cls, path, failed_only, filtered, write_pipe,
                           pipe_size, pipe_semaphore, filter_value):
+        sys.stdout = StringIO()
+        sys.stderr = StringIO()
         logging_tools.configure('pytui-runner.log')
         runner = cls(path, write_pipe=write_pipe, pipe_size=pipe_size,
                      pipe_semaphore=pipe_semaphore)
