@@ -6,6 +6,7 @@ import os
 import sys
 import json
 import pytest
+from _pytest.runner import Skipped
 import logging
 import traceback
 import logging_tools
@@ -18,6 +19,7 @@ from plugin import PytestPlugin
 
 
 logger = logging_tools.get_logger(__name__)
+pipe_logger = logging_tools.get_logger(__name__, 'pipe')
 
 
 class RollbackImporter:
@@ -62,20 +64,24 @@ class Runner(object):
         })
         pipe_lock = self.pipe_size.get_lock()
         data_size = len(data)
-        logger.debug('writing to pipe size: %s, pipe_size: %s',
+        pipe_logger.info('pipe write, data size: %s, pipe size: %s',
                      data_size, self.pipe_size.value)
-
+        pipe_logger.debug('data: %s', data)
         if self.pipe_size.value + data_size >= 4096:
-            logger.debug('waiting for reader')
+            pipe_logger.debug('waiting for reader')
             self.pipe_semaphore.clear()
             self.pipe_semaphore.wait()
-            logger.debug('reader finished')
+            pipe_logger.debug('reader finished')
 
         with pipe_lock:
             self.pipe_size.value += data_size
             self.write_pipe.write(data)
 
-    def set_test_result(self, test_id, report, output):
+    def set_test_result(self, test_id, report):
+        output = \
+            getattr(report, 'capstdout', '') + \
+            getattr(report, 'capstderr', '')
+
         self.pipe_send('set_test_result',
             test_id=test_id,
             output=output,
@@ -91,14 +97,20 @@ class Runner(object):
         )
 
     def set_exception_info(self, test_id, excinfo, when):
-        exc_type, exc_value, exc_traceback = excinfo._excinfo
-        extracted_traceback = traceback.extract_tb(exc_traceback)
+        logger.debug('exc info repr %s', excinfo._getreprcrash())
+        if excinfo.type is Skipped:
+            result = 'skipped'
+            extracted_traceback = None
+        else:
+            result = 'failed'
+            extracted_traceback = traceback.extract_tb(excinfo.tb)
+
         self.pipe_send('set_exception_info',
             test_id=test_id,
-            exc_type='TODO',
-            exc_value=traceback.format_exception_only(exc_type, exc_value)[-1],
+            exc_type=repr(excinfo.type),
+            exc_value=traceback.format_exception_only(excinfo.type, excinfo.value)[-1],
             extracted_traceback=extracted_traceback,
-            result='failed',
+            result=result,
             when=when
         )
 

@@ -3,8 +3,8 @@ import logging.config
 
 configured = False
 
-def get_logger(name):
-    return logging.getLogger('project.{}'.format(name))
+def get_logger(name, *args):
+    return logging.getLogger('.'.join(['project', name] + list(args)))
 
 def configure(filename):
     if configured:
@@ -32,6 +32,9 @@ def configure(filename):
             'project': {
                 'handlers': ['logfile'],
                 'level': 'DEBUG',
+            },
+            'project.runner.pipe': {
+                'level': 'WARN'
             }
 
         },
