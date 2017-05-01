@@ -22,31 +22,6 @@ logger = logging_tools.get_logger(__name__)
 pipe_logger = logging_tools.get_logger(__name__, 'pipe')
 
 
-class RollbackImporter:
-    def __init__(self):
-        "Creates an instance and installs as the global importer"
-        self.previousModules = sys.modules.copy()
-        self.realImport = __builtin__.__import__
-        __builtin__.__import__ = self._import
-        self.newModules = {}
-
-    def _import(self, name, globals=None, locals=None, fromlist=[], *args, **kwargs):
-        # logger.debug('args: %s', args)
-        # logger.debug('kwargs: %s', kwargs)
-        result = apply(self.realImport, (name, globals, locals, fromlist))
-        self.newModules[name] = 1
-        return result
-
-    def uninstall(self):
-        logger.debug('uninstalling modules')
-        for modname in self.newModules.keys():
-            logger.debug('modname: %s', modname)
-            if not self.previousModules.has_key(modname):
-                # Force reload when modname next imported
-                del(sys.modules[modname])
-        __builtin__.__import__ = self.realImport
-
-
 class Runner(object):
     def __init__(self, path='.', write_pipe=None, pipe_size=None, pipe_semaphore=None):
         self.ui = None
@@ -116,50 +91,6 @@ class Runner(object):
 
     def get_test_id(self, test):
         raise NotImplementedError()
-
-class UnittestRunner(Runner):
-    def get_suite_tests(suite):
-        test_list = {}
-        for item in suite:
-            if isinstance(item, unittest.suite.TestSuite):
-                test_list.update(self.get_suite_tests(item))
-            else:
-                test_list[item.id()] = item
-
-        return OrderedDict(sorted(test_list.iteritems()))
-
-    def get_test_id(self, test):
-        return test.id()
-
-    def init_tests(self):
-        loader = unittest.TestLoader()
-        top_suite = loader.discover(self.path)
-        self.tests = self.get_suite_tests(top_suite)
-
-    def reload_tests(self):
-        if self.rollbackImporter:
-            self.rollbackImporter.uninstall()
-        self.rollbackImporter = RollbackImporter()
-        self.init_tests()
-
-    def run_tests(self, failed_only=True, filtered=True):
-        self.reload_tests()
-        tests = self._get_tests(failed_only, filtered)
-
-        for test_id, suite in tests.iteritems():
-            self._run_test(test_id)
-
-    def result_state(self, test_result):
-        if not test_result:
-            return ''
-        elif test_result.skipped:
-            return 'skipped'
-        elif test_result.failures:
-            return 'failed'
-        elif test_result.errors:
-            return 'error'
-
-        return 'ok'
 
 
 class PytestRunner(Runner):
