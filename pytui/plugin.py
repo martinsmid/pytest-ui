@@ -13,6 +13,11 @@ class PytestPlugin(object):
     def pytest_runtest_protocol(self, item, nextitem):
         logger.debug('pytest_runtest_protocol %s %s', item, nextitem)
 
+    def pytest_collectreport(self, report):
+        logger.debug('pytest_collectreport %s', report)
+
+    def pytest_report_teststatus(self, report):
+        logger.debug('pytest_report_teststatus %s', report)
 
     def pytest_runtest_setup(self, item):
         self.runner.set_test_state(
@@ -37,7 +42,14 @@ class PytestPlugin(object):
         self.runner.item_collected(item)
 
     def pytest_runtest_makereport(self, item, call):
-        logger.debug('pytest_runtest_makereport %s %s %s', item, call.when, str(type(call.excinfo)))
+        logger.debug('pytest_runtest_makereport %s %s %s', item, call.when, str(call.excinfo))
+        import pytest
+        # if call.skipped:
+        logger.debug('SKIPPED wasxfail {}'.format(getattr(call, 'wasxfail', 'None')))
+        if call.excinfo and call.excinfo.errisinstance(pytest.xfail.Exception):
+            logger.debug('reason: %s', call.excinfo.value.msg)
+
+
         if call.excinfo:
             self.runner.set_exception_info(item.nodeid, call.excinfo, call.when)
 
