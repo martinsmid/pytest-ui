@@ -157,13 +157,24 @@ class Store(object):
                                   if not failed_only
                                       or (failed_only and self.is_test_failed(test))])
 
-    def set_test_result(self, test_id, result_state, output, when, outcome):
+    def set_test_result(self, test_id, result_state, output, when, outcome,
+                        exc_type=None, exc_value=None, extracted_traceback=None):
         if not test_id in self.test_data:
             self.test_data[test_id] = {
                 'id': test_id
             }
 
+        if extracted_traceback:
+            output += ''.join(
+                traceback.format_list(extracted_traceback) +
+                [exc_value]
+            )
+
         test_data = self.test_data[test_id]
+        test_data['exc_type'] = exc_type
+        test_data['exc_value'] = exc_value
+        test_data['exc_tb'] = extracted_traceback
+
         # Ignore success, except for the test run (call)
         # ignore successive failure, take only the first
         if (outcome != 'passed' or when == 'call') \
@@ -183,16 +194,9 @@ class Store(object):
         self.ui.update_test_line(test_data)
 
     def set_exception_info(self, test_id, exc_type, exc_value, extracted_traceback, result, when):
-        output = ''.join(
-            traceback.format_list(extracted_traceback) +
-            [exc_value]
-        )
         self.set_test_result(
-            test_id,
-            result,
-            output,
-            when,
-            'failed'
+            test_id, result, exc_value, when, 'failed',
+            exc_type, exc_value, extracted_traceback
         )
 
     def set_filter(self, filter_value):

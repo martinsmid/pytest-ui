@@ -1,3 +1,5 @@
 *.pyc
 test_projects/
 env/
+*.log
+draft/*
