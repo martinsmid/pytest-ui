@@ -5,7 +5,7 @@ import logging
 logging.basicConfig()
 logger = logging.getLogger(__name__)
 
-class TestA(unittest.TestCase):
+class TestOutputCapturing(unittest.TestCase):
     def test_feat_1_case_1(self):
         print 'hello'
         logger.debug('hello at the debug level')

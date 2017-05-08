@@ -1,7 +1,7 @@
 import unittest
 import pytest
 
-class TestD(unittest.TestCase):
+class TestFeatures(unittest.TestCase):
     def test_feat_1_case_1(self):
         pass
 
@@ -9,9 +9,13 @@ class TestD(unittest.TestCase):
         pass
 
     @unittest.skip
-    def test_feat_1_case_3(self):
-        pass
+    def test_unittest_skip(self):
+        raise Exception('This shouldn\'t run')
 
     @pytest.mark.skip
-    def test_feat_1_case_4(self):
-        pass
+    def test_pytest_skip(self):
+        raise Exception('This shouldn\'t run')
+
+    @pytest.mark.xfail
+    def test_xfail(self):
+        raise Exception('This shouldn\'t run IMHO')
