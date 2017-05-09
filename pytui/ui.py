@@ -192,6 +192,7 @@ class Store(object):
         test_data['runstate'] = state
 
         self.ui.update_test_line(test_data)
+        self.ui.set_listbox_focus(test_data)
 
     def set_exception_info(self, test_id, exc_type, exc_value, extracted_traceback, result, when):
         self.set_test_result(
@@ -520,6 +521,12 @@ class TestRunnerUI(object):
         if next_id is not None:
             next_pos = self.store.get_test_position(next_id)
             self.w_test_listbox.set_focus(next_pos, 'above' if direction == 1 else 'below')
+            self.w_test_listbox._invalidate()
+
+    def set_listbox_focus(self, test_data):
+        # set listbox focus if not already focused on first failed
+        if not self._first_failed_focused:
+            self.w_test_listbox.set_focus(test_data['position'], 'above')
             self.w_test_listbox._invalidate()
 
     def quit(self):
