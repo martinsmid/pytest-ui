@@ -537,7 +537,7 @@ class TestRunnerUI(object):
         elif key == 'ctrl f':
             self.w_filter_edit.set_edit_text('')
             self.w_main.original_widget.set_focus(2)
-        elif key == 'R':
+        elif key == 'R' or key == 'ctrl f5':
             self.run_tests(False)
         elif key == 'r' or key == 'f5':
             self.run_tests(True)

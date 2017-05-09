@@ -6,6 +6,18 @@ configured = False
 def get_logger(name, *args):
     return logging.getLogger('.'.join(['project', name] + list(args)))
 
+
+class LogWriter(object):
+    def __init__(self, logger):
+        self.logger = logger
+
+    def write(self, message):
+        self.logger.debug('STDOUT: %s', message.strip('\n'))
+
+    def flush(self):
+        pass
+
+
 def configure(filename):
     if configured:
         return False
