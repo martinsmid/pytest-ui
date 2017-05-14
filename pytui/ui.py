@@ -192,6 +192,7 @@ class Store(object):
         test_data['runstate'] = state
 
         self.ui.update_test_line(test_data)
+        self.ui.set_listbox_focus(test_data)
 
     def set_exception_info(self, test_id, exc_type, exc_value, extracted_traceback, result, when):
         self.set_test_result(
@@ -253,9 +254,9 @@ class Store(object):
 
 class TestRunnerUI(object):
     palette = [
-        ('reversed',    '',           'dark gray'),
-        ('edit',        '',           'dark blue',    '', '',     '#008'),
-        ('edit_focus',  '',           'light blue',   '', '',     '#00b'),
+        ('reversed',    '',           'dark green'),
+        ('edit',        '',           'black',    '', '',     '#008'),
+        ('edit_focus',  '',           'dark gray',   '', '',     '#00b'),
         ('statusline',  'white',      'dark blue',    '', '',     ''),
 
         # result states
@@ -266,9 +267,9 @@ class TestRunnerUI(object):
 
 
         # run states
-        ('setup',       'black',      'dark green',          '', '',     ''),
-        ('call',        'black',      'dark green',        '', '',     ''),
-        ('teardown',    'black',      'dark green',         '', '',     ''),
+        ('setup',       'white',      'dark blue',             '', '',     ''),
+        ('call',        'white',      'dark blue',             '', '',     ''),
+        ('teardown',    'white',      'dark blue',             '', '',     ''),
     ]
 
     def __init__(self, runner_class, path):
@@ -406,6 +407,8 @@ class TestRunnerUI(object):
             logger.info('Tests are already running')
             return
 
+        self.w_main.original_widget.focus_position = 4
+
         if filtered is None:
             filtered = self.store.filter_value
 
@@ -520,6 +523,12 @@ class TestRunnerUI(object):
         if next_id is not None:
             next_pos = self.store.get_test_position(next_id)
             self.w_test_listbox.set_focus(next_pos, 'above' if direction == 1 else 'below')
+            self.w_test_listbox._invalidate()
+
+    def set_listbox_focus(self, test_data):
+        # set listbox focus if not already focused on first failed
+        if not self._first_failed_focused:
+            self.w_test_listbox.set_focus(test_data['position'], 'above')
             self.w_test_listbox._invalidate()
 
     def quit(self):
