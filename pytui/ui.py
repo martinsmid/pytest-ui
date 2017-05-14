@@ -407,6 +407,8 @@ class TestRunnerUI(object):
             logger.info('Tests are already running')
             return
 
+        self.w_main.original_widget.focus_position = 4
+
         if filtered is None:
             filtered = self.store.filter_value
 
