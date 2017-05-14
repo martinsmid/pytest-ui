@@ -254,9 +254,9 @@ class Store(object):
 
 class TestRunnerUI(object):
     palette = [
-        ('reversed',    '',           'dark gray'),
-        ('edit',        '',           'dark blue',    '', '',     '#008'),
-        ('edit_focus',  '',           'light blue',   '', '',     '#00b'),
+        ('reversed',    '',           'dark green'),
+        ('edit',        '',           'black',    '', '',     '#008'),
+        ('edit_focus',  '',           'dark gray',   '', '',     '#00b'),
         ('statusline',  'white',      'dark blue',    '', '',     ''),
 
         # result states
@@ -267,9 +267,9 @@ class TestRunnerUI(object):
 
 
         # run states
-        ('setup',       'black',      'dark green',          '', '',     ''),
-        ('call',        'black',      'dark green',        '', '',     ''),
-        ('teardown',    'black',      'dark green',         '', '',     ''),
+        ('setup',       'white',      'dark blue',             '', '',     ''),
+        ('call',        'white',      'dark blue',             '', '',     ''),
+        ('teardown',    'white',      'dark blue',             '', '',     ''),
     ]
 
     def __init__(self, runner_class, path):
