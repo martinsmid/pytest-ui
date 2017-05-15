@@ -223,7 +223,7 @@ class Store(object):
         return failed
 
     def is_test_filtered(self, test_id):
-        return self.filter_regex.findall(test_id)
+        return not self.filter_regex or self.filter_regex.findall(test_id)
 
     def get_failed_sibling(self, position, direction):
         """
