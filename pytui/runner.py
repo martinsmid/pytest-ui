@@ -6,25 +6,34 @@ import os
 import sys
 import json
 import pytest
+import logging
 from _pytest.runner import Skipped
 import traceback
-import logging_tools
 from collections import OrderedDict
 import unittest
 from StringIO import StringIO
 
+import logging_tools
 from plugin import PytestPlugin
 
 
 logger = logging_tools.get_logger(__name__)
-pipe_logger = logging_tools.get_logger(__name__, 'pipe')
+pipe_logger = logging_tools.get_logger('runner', 'pipe')
 stdout_logger = logging_tools.get_logger('runner.stdout')
 stdout_logger_writer = logging_tools.LogWriter(stdout_logger)
+stderr_logger = logging_tools.get_logger('runner.stderr')
+stderr_logger_writer = logging_tools.LogWriter(stderr_logger)
+PIPE_LIMIT = 4096
+LOW_DEBUG = logging.DEBUG - 1
+
+
+def get_chunks(string):
+    for offset in xrange(0, len(string), PIPE_LIMIT):
+        yield string[offset:offset+PIPE_LIMIT]
 
 
 class Runner(object):
     def __init__(self, path='.', write_pipe=None, pipe_size=None, pipe_semaphore=None):
-        self.ui = None
         self.path = path
         self.tests = OrderedDict()
         logger.debug('%s Init', self.__class__.__name__)
@@ -37,20 +46,27 @@ class Runner(object):
                 'method': method,
                 'params': kwargs
         })
-        pipe_lock = self.pipe_size.get_lock()
+
         data_size = len(data)
-        pipe_logger.info('pipe write, data size: %s, pipe size: %s',
-                     data_size, self.pipe_size.value)
-        pipe_logger.debug('data: %s', data)
-        if self.pipe_size.value + data_size >= 4096:
+        pipe_logger.debug('pipe write, data size: %s, pipe size: %s',
+                          data_size, self.pipe_size.value)
+        pipe_logger.log(LOW_DEBUG, 'data: %s', data)
+
+        for chunk in get_chunks(data):
+            self.pipe_send_chunk(chunk)
+
+    def pipe_send_chunk(self, chunk):
+        chunk_size = len(chunk)
+        while self.pipe_size.value + chunk_size >= PIPE_LIMIT:
+            pipe_logger.debug('no space in pipe: %d', self.pipe_size.value)
             pipe_logger.debug('waiting for reader')
             self.pipe_semaphore.clear()
             self.pipe_semaphore.wait()
             pipe_logger.debug('reader finished')
 
-        with pipe_lock:
-            self.pipe_size.value += data_size
-            self.write_pipe.write(data)
+        with self.pipe_size.get_lock():
+            self.pipe_size.value += chunk_size
+            self.write_pipe.write(chunk)
 
     def set_test_result(self, test_id, report):
         output = \
