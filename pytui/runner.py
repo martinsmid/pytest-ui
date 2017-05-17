@@ -109,24 +109,33 @@ class PytestRunner(Runner):
     @classmethod
     def process_init_tests(cls, path, write_pipe, pipe_size, pipe_semaphore):
         """ Class method as separate process entrypoint """
-        sys.stdout = sys.stderr = stdout_logger_writer
         logging_tools.configure('pytui-runner.log')
+        logger.info('Init started (path: %s)', path)
 
-        logger.debug('Inside the runner process %s %s %s' % (cls, path, write_pipe))
+        sys.stdout = stdout_logger_writer
+        sys.stderr = stderr_logger_writer
+
         runner = cls(path, write_pipe=write_pipe, pipe_size=pipe_size, pipe_semaphore=pipe_semaphore)
         runner.init_tests()
-        logger.debug('Inside the runner process end')
+
+        logger.info('Init finished')
 
     @classmethod
     def process_run_tests(cls, path, failed_only, filtered, write_pipe,
                           pipe_size, pipe_semaphore, filter_value):
         """ Class method as separate process entrypoint """
-        sys.stdout = sys.stderr = stdout_logger_writer
         logging_tools.configure('pytui-runner.log')
+        logger.info('Test run started (failed_only: %s, filtere: %s)', failed_only, filtered)
+
+        sys.stdout = stdout_logger_writer
+        # sys.stdout = sys.stderr = stdout_logger_writer
+        sys.stderr = stderr_logger_writer
 
         runner = cls(path, write_pipe=write_pipe, pipe_size=pipe_size,
                      pipe_semaphore=pipe_semaphore)
         runner.run_tests(failed_only, filter_value)
+
+        logger.info('Test run finished')
 
     def item_collected(self, item):
         # self.tests[self.get_test_id(item)] = item
