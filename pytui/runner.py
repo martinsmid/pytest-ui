@@ -6,25 +6,34 @@ import os
 import sys
 import json
 import pytest
+import logging
 from _pytest.runner import Skipped
 import traceback
-import logging_tools
 from collections import OrderedDict
 import unittest
 from StringIO import StringIO
 
+import logging_tools
 from plugin import PytestPlugin
 
 
 logger = logging_tools.get_logger(__name__)
-pipe_logger = logging_tools.get_logger(__name__, 'pipe')
+pipe_logger = logging_tools.get_logger('runner', 'pipe')
 stdout_logger = logging_tools.get_logger('runner.stdout')
 stdout_logger_writer = logging_tools.LogWriter(stdout_logger)
+stderr_logger = logging_tools.get_logger('runner.stderr')
+stderr_logger_writer = logging_tools.LogWriter(stderr_logger)
+PIPE_LIMIT = 4096
+LOW_DEBUG = logging.DEBUG - 1
+
+
+def get_chunks(string):
+    for offset in xrange(0, len(string), PIPE_LIMIT):
+        yield string[offset:offset+PIPE_LIMIT]
 
 
 class Runner(object):
     def __init__(self, path='.', write_pipe=None, pipe_size=None, pipe_semaphore=None):
-        self.ui = None
         self.path = path
         self.tests = OrderedDict()
         logger.debug('%s Init', self.__class__.__name__)
@@ -37,28 +46,32 @@ class Runner(object):
                 'method': method,
                 'params': kwargs
         })
-        pipe_lock = self.pipe_size.get_lock()
-        data_size = len(data)
-        logger.debug('writing to pipe size: %s, pipe_size: %s',
-                     data_size, self.pipe_size.value)
 
-        if self.pipe_size.value + data_size >= 4096:
-            logger.debug('waiting for reader')
+        data_size = len(data)
+        pipe_logger.debug('pipe write, data size: %s, pipe size: %s',
+                          data_size, self.pipe_size.value)
+        pipe_logger.log(LOW_DEBUG, 'data: %s', data)
+
+        for chunk in get_chunks(data):
+            self.pipe_send_chunk(chunk)
+
+    def pipe_send_chunk(self, chunk):
+        chunk_size = len(chunk)
+        while self.pipe_size.value + chunk_size >= PIPE_LIMIT:
+            pipe_logger.debug('no space in pipe: %d', self.pipe_size.value)
+            pipe_logger.debug('waiting for reader')
             self.pipe_semaphore.clear()
             self.pipe_semaphore.wait()
-            logger.debug('reader finished')
+            pipe_logger.debug('reader finished')
 
-        with pipe_lock:
-            self.pipe_size.value += data_size
-            self.write_pipe.write(data)
+        with self.pipe_size.get_lock():
+            self.pipe_size.value += chunk_size
+            self.write_pipe.write(chunk)
 
     def set_test_result(self, test_id, report):
         output = \
             getattr(report, 'capstdout', '') + \
             getattr(report, 'capstderr', '')
-
-        if report.skipped:
-            output += 'SKIPPED wasxfail {}'.format(getattr(report, 'wasxfail', 'None'))
 
         self.pipe_send('set_test_result',
             test_id=test_id,
@@ -83,15 +96,12 @@ class Runner(object):
             result = 'failed'
             extracted_traceback = traceback.extract_tb(excinfo.tb)
 
-        if report.skipped:
-            output += 'SKIPPED wasxfail {}'.format(getattr(report, 'wasxfail', 'None'))
-
         self.pipe_send('set_exception_info',
             test_id=test_id,
-            exc_type='TODO',
-            exc_value=traceback.format_exception_only(exc_type, exc_value)[-1],
+            exc_type=repr(excinfo.type),
+            exc_value=traceback.format_exception_only(excinfo.type, excinfo.value)[-1],
             extracted_traceback=extracted_traceback,
-            result='failed',
+            result=result,
             when=when
         )
 
@@ -115,24 +125,33 @@ class PytestRunner(Runner):
     @classmethod
     def process_init_tests(cls, path, write_pipe, pipe_size, pipe_semaphore):
         """ Class method as separate process entrypoint """
-        sys.stdout = sys.stderr = stdout_logger_writer
         logging_tools.configure('pytui-runner.log')
+        logger.info('Init started (path: %s)', path)
 
-        logger.debug('Inside the runner process %s %s %s' % (cls, path, write_pipe))
+        sys.stdout = stdout_logger_writer
+        sys.stderr = stderr_logger_writer
+
         runner = cls(path, write_pipe=write_pipe, pipe_size=pipe_size, pipe_semaphore=pipe_semaphore)
         runner.init_tests()
-        logger.debug('Inside the runner process end')
+
+        logger.info('Init finished')
 
     @classmethod
     def process_run_tests(cls, path, failed_only, filtered, write_pipe,
                           pipe_size, pipe_semaphore, filter_value):
         """ Class method as separate process entrypoint """
-        sys.stdout = sys.stderr = stdout_logger_writer
         logging_tools.configure('pytui-runner.log')
+        logger.info('Test run started (failed_only: %s, filtere: %s)', failed_only, filtered)
+
+        sys.stdout = stdout_logger_writer
+        # sys.stdout = sys.stderr = stdout_logger_writer
+        sys.stderr = stderr_logger_writer
 
         runner = cls(path, write_pipe=write_pipe, pipe_size=pipe_size,
                      pipe_semaphore=pipe_semaphore)
         runner.run_tests(failed_only, filter_value)
+
+        logger.info('Test run finished')
 
     def item_collected(self, item):
         # self.tests[self.get_test_id(item)] = item

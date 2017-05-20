@@ -57,8 +57,7 @@ class PytestPlugin(object):
         logger.debug('pytest_runtest_logreport %s', report)
         self.runner.set_test_result(
             report.nodeid,
-            report,
-            getattr(report, 'capstdout', '') + getattr(report, 'capstderr', '')
+            report
         )
 
     def pytest_collectreport(self, report):

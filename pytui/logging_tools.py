@@ -3,8 +3,8 @@ import logging.config
 
 configured = False
 
-def get_logger(name):
-    return logging.getLogger('project.{}'.format(name))
+def get_logger(name, *args):
+    return logging.getLogger('.'.join(['project', name] + list(args)))
 
 
 class LogWriter(object):
@@ -12,7 +12,7 @@ class LogWriter(object):
         self.logger = logger
 
     def write(self, message):
-        self.logger.debug('STDOUT: %s', message.strip('\n'))
+        self.logger.debug('STDOUT: (%s)\n', message.strip('\n'))
 
     def flush(self):
         pass
@@ -26,7 +26,7 @@ def configure(filename):
         'version': 1,
         'formatters': {
             'process': {
-                'format': '%(process)10d %(levelname)10s %(message)s',
+                'format': '%(name)-25s  %(levelname)5s  %(message)s',
             }
         },
         'handlers': {
@@ -44,8 +44,20 @@ def configure(filename):
             'project': {
                 'handlers': ['logfile'],
                 'level': 'DEBUG',
+            },
+            'project.runner.pipe': {
+                'level': 'DEBUG'
+            },
+            'project.runner.stdout': {
+                'handlers': ['logfile'],
+                'level': 'DEBUG',
+                'propagate': False,
+            },
+            'project.runner.stderr': {
+                'handlers': ['logfile'],
+                'level': 'DEBUG',
+                'propagate': False,
             }
-
         },
         'root': {
             'handlers': ['default'],
