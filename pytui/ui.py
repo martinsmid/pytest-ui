@@ -255,6 +255,7 @@ class Store(object):
     @show_failed_only.setter
     def show_failed_only(self, value):
         self._show_failed_only = value
+        self.ui.init_test_listbox()
 
 
 class TestRunnerUI(object):
