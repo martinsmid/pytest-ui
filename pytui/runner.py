@@ -57,7 +57,7 @@ class Runner(object):
 
     def pipe_send_chunk(self, chunk):
         chunk_size = len(chunk)
-        while self.pipe_size.value + chunk_size >= PIPE_LIMIT:
+        while self.pipe_size.value + chunk_size > PIPE_LIMIT:
             pipe_logger.debug('no space in pipe: %d', self.pipe_size.value)
             pipe_logger.debug('waiting for reader')
             self.pipe_semaphore.clear()

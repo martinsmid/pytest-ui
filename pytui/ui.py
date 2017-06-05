@@ -373,6 +373,7 @@ class TestRunnerUI(object):
             except Exception as e:
                 logger.debug('Failed to parse runner input: \n"%s"\n', chunk)
                 self.receive_buffer += chunk
+                self.pipe_semaphore.set()
                 return
 
             try:
