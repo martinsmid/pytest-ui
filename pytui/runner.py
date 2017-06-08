@@ -18,10 +18,10 @@ from plugin import PytestPlugin
 
 
 logger = logging_tools.get_logger(__name__)
-pipe_logger = logging_tools.get_logger('runner', 'pipe')
-stdout_logger = logging_tools.get_logger('runner.stdout')
+pipe_logger = logging_tools.get_logger(__name__, 'pipe')
+stdout_logger = logging_tools.get_logger(__name__, 'stdout')
 stdout_logger_writer = logging_tools.LogWriter(stdout_logger)
-stderr_logger = logging_tools.get_logger('runner.stderr')
+stderr_logger = logging_tools.get_logger(__name__, 'stderr')
 stderr_logger_writer = logging_tools.LogWriter(stderr_logger)
 PIPE_LIMIT = 4096
 LOW_DEBUG = logging.DEBUG - 1
@@ -57,6 +57,7 @@ class Runner(object):
 
     def pipe_send_chunk(self, chunk):
         chunk_size = len(chunk)
+        # wait for pipe to empty
         while self.pipe_size.value + chunk_size > PIPE_LIMIT:
             pipe_logger.debug('no space in pipe: %d', self.pipe_size.value)
             pipe_logger.debug('waiting for reader')

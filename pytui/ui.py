@@ -350,7 +350,7 @@ class TestRunnerUI(object):
         """
             Parse data received by client and execute encoded action
         """
-        logger.debug('received output start')
+        logger.debug('received_output start')
         # release the write end if waiting for read
         with self.pipe_size.get_lock():
             self.pipe_size.value -= len(data)
