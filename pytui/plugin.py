@@ -43,12 +43,14 @@ class PytestPlugin(object):
 
     def pytest_runtest_makereport(self, item, call):
         logger.debug('pytest_runtest_makereport %s %s %s', item, call.when, str(call.excinfo))
+        evalxfail = getattr(item, '_evalxfail', None)
+        # logger.debug('xfail %s', evalxfail.wasvalid())
+        if evalxfail and evalxfail.wasvalid() and evalxfail.istrue():
+            logger.debug('SKIPPED wasxfail %s, %s', evalxfail.getexplanation(), call.excinfo)
         import pytest
         # if call.skipped:
-        logger.debug('SKIPPED wasxfail {}'.format(getattr(call, 'wasxfail', 'None')))
         if call.excinfo and call.excinfo.errisinstance(pytest.xfail.Exception):
             logger.debug('reason: %s', call.excinfo.value.msg)
-
 
         if call.excinfo:
             self.runner.set_exception_info(item.nodeid, call.excinfo, call.when)
