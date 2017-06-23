@@ -114,17 +114,15 @@ class Store(object):
         self.ui = ui
         self.filter_regex = None
         self.filter_value = None
+        self._show_failed_only = False
 
     @property
     def current_test_list(self):
-        if not self.filter_regex:
+        if not self.filter_regex and not self._show_failed_only:
             return self.test_data
 
-        current_test_list = OrderedDict([
-            (k, v) for k, v in self.test_data.iteritems()
-                if self.filter_regex.findall(k)
-        ])
-        return current_test_list
+        return self._get_tests(self._show_failed_only, bool(self.filter_regex))
+
 
     def get_test_stats(self):
         return {
@@ -152,10 +150,12 @@ class Store(object):
                         if self.is_test_failed(test)])
 
     def _get_tests(self, failed_only=True, filtered=True):
-        tests = self.current_test_list if filtered else self.test_data
-        return OrderedDict([(test_id, test) for test_id, test in tests.iteritems()
-                                  if not failed_only
-                                      or (failed_only and self.is_test_failed(test))])
+        return OrderedDict([(test_id, test) for test_id, test in self.test_data.iteritems()
+                                  if (not failed_only
+                                      or (failed_only and self.is_test_failed(test)))
+                                  and (not filtered
+                                      or (filtered and self.is_test_filtered(test_id)))
+                          ])
 
     def set_test_result(self, test_id, result_state, output, when, outcome,
                         exc_type=None, exc_value=None, extracted_traceback=None):
@@ -222,11 +222,8 @@ class Store(object):
         failed = not test_data or test_data.get('result_state') in self.ui.runner_class._test_fail_states
         return failed
 
-    def is_test_filtered(self, test):
-        if not self.ui:
-            return True
-
-        return self.get_test_id(test) in self.ui.current_test_list.keys()
+    def is_test_filtered(self, test_id):
+        return not self.filter_regex or self.filter_regex.findall(test_id)
 
     def get_failed_sibling(self, position, direction):
         """
@@ -250,6 +247,15 @@ class Store(object):
 
     def get_previous_failed(self, test_id):
         return self.get_failed_sibling(test_id, -1)
+
+    @property
+    def show_failed_only(self):
+        return self._show_failed_only
+
+    @show_failed_only.setter
+    def show_failed_only(self, value):
+        self._show_failed_only = value
+        self.ui.init_test_listbox()
 
 
 class TestRunnerUI(object):
@@ -344,7 +350,7 @@ class TestRunnerUI(object):
         """
             Parse data received by client and execute encoded action
         """
-        logger.debug('received output start')
+        logger.debug('received_output start')
         # release the write end if waiting for read
         with self.pipe_size.get_lock():
             self.pipe_size.value -= len(data)
@@ -367,6 +373,7 @@ class TestRunnerUI(object):
             except Exception as e:
                 logger.debug('Failed to parse runner input: \n"%s"\n', chunk)
                 self.receive_buffer += chunk
+                self.pipe_semaphore.set()
                 return
 
             try:
@@ -552,9 +559,10 @@ class TestRunnerUI(object):
             self.run_tests(True)
         elif key == 'meta down':
             self.focus_failed_sibling(1)
-
         elif key == 'meta up':
             self.focus_failed_sibling(-1)
+        elif key == 'f4':
+            self.store.show_failed_only = not self.store.show_failed_only
 
 
 def main():
