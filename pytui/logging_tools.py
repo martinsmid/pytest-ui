@@ -1,7 +1,6 @@
 import logging
 import logging.config
 
-configured = False
 
 def get_logger(name, *args):
     return logging.getLogger('.'.join(['project', name] + list(args)))
@@ -19,9 +18,6 @@ class LogWriter(object):
 
 
 def configure(filename):
-    if configured:
-        return False
-
     logging_dict = {
         'version': 1,
         'formatters': {
@@ -45,19 +41,14 @@ def configure(filename):
                 'handlers': ['logfile'],
                 'level': 'DEBUG',
             },
-            'project.runner.pipe': {
+            'project.pytui.runner.pipe': {
                 'level': 'DEBUG'
             },
-            'project.runner.stdout': {
+            'project.pytui': {
                 'handlers': ['logfile'],
                 'level': 'DEBUG',
                 'propagate': False,
             },
-            'project.runner.stderr': {
-                'handlers': ['logfile'],
-                'level': 'DEBUG',
-                'propagate': False,
-            }
         },
         'root': {
             'handlers': ['default'],
