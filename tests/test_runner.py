@@ -1,3 +1,4 @@
+import sys
 import mock
 import pytest
 import logging
@@ -7,7 +8,7 @@ import unittest
 from pytui.runner import PytestRunner
 logger = logging.getLogger(__name__)
 logging.basicConfig()
-
+logger.setLevel('DEBUG')
 
 class PytestRunnerTests(unittest.TestCase):
     def setUp(self):
@@ -23,6 +24,10 @@ class PytestRunnerTests(unittest.TestCase):
             self.pipe_semaphore_mock
         )
         with mock.patch.object(PytestRunner, 'pipe_send') as pipe_send_mock:
+            logger.debug('------ runner init ------')
             runner.init_tests()
-            logger.debug(pipe_send_mock.call_args_list)
+            # logger.debug(pipe_send_mock.call_args_list)
+            logger.debug('------ runner run_tests ------')
             runner.run_tests(False, 'xfail')
+            logger.debug(pipe_send_mock.call_args_list)
+

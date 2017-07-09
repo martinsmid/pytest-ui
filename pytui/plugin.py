@@ -9,6 +9,7 @@ class PytestPlugin(object):
     def __init__(self, runner, filter_value=None, config=None):
         self.runner = runner
         self.filter_regex = get_filter_regex(filter_value)
+        logger.debug('plugin init %s %s', runner, filter_value)
 
     def pytest_runtest_protocol(self, item, nextitem):
         logger.debug('pytest_runtest_protocol %s %s', item, nextitem)
@@ -20,18 +21,21 @@ class PytestPlugin(object):
         logger.debug('pytest_report_teststatus %s', report)
 
     def pytest_runtest_setup(self, item):
+        logger.debug('pytest_runtest_setup %s', item)
         self.runner.set_test_state(
             item.nodeid,
             'setup'
         )
 
     def pytest_runtest_call(self, item):
+        logger.debug('pytest_runtest_call %s', item)
         self.runner.set_test_state(
             item.nodeid,
             'call'
         )
 
     def pytest_runtest_teardown(self, item):
+        logger.debug('pytest_runtest_teardown %s', item)
         self.runner.set_test_state(
             item.nodeid,
             'teardown'
@@ -66,10 +70,13 @@ class PytestPlugin(object):
         logger.debug('pytest_collectreport %s', report)
 
     def pytest_collection_modifyitems(self, session, config, items):
-        # logger.debug('pytest_collection_modifyitems %s %s %s', session, config, items)
+        logger.debug('pytest_collection_modifyitems %s %s %s', session, config, items)
         def is_filtered(item):
             return self.filter_regex.findall(self.runner.get_test_id(item))
 
+        # import pdb; pdb.set_trace()
         if self.filter_regex:
             items[:] = filter(is_filtered, items)
+
+        logger.debug('collect filtered  %s', [i.nodeid for i in items])
 
