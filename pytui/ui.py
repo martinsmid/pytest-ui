@@ -144,7 +144,6 @@ class Store(object):
     def get_test_position(self, test_id):
         return self.test_data[test_id]['position']
 
-
     def get_failed_test_count(self):
         return len([test_id for test_id, test in self.current_test_list.iteritems()
                         if self.is_test_failed(test)])
@@ -194,9 +193,9 @@ class Store(object):
         self.ui.update_test_line(test_data)
         self.ui.set_listbox_focus(test_data)
 
-    def set_exception_info(self, test_id, exc_type, exc_value, extracted_traceback, result, when):
+    def set_exception_info(self, test_id, exc_type, exc_value, extracted_traceback, result_state, when):
         self.set_test_result(
-            test_id, result, exc_value, when, 'failed',
+            test_id, result_state, exc_value, when, 'failed',
             exc_type, exc_value, extracted_traceback
         )
 
@@ -266,6 +265,7 @@ class TestRunnerUI(object):
         ('statusline',  'white',      'dark blue',    '', '',     ''),
 
         # result states
+        ('xfail',       'light red',  '',             '', '',     '#b00'),
         ('failed',      'light red',  '',             '', '',     '#b00'),
         ('error',       'brown',      '',             '', '#f88', '#b00'),
         ('skipped',     'light gray', '',             '', '#f88', '#b00'),

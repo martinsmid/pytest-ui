@@ -88,9 +88,12 @@ class Runner(object):
             state=state
         )
 
-    def set_exception_info(self, test_id, excinfo, when):
+    def set_exception_info(self, test_id, excinfo, when, wasxfail):
         logger.debug('exc info repr %s', excinfo._getreprcrash())
-        if excinfo.type is Skipped:
+        if wasxfail:
+            result = 'xfail'
+            extracted_traceback = traceback.extract_tb(excinfo.tb)
+        elif excinfo.type is Skipped:
             result = 'skipped'
             extracted_traceback = None
         else:
@@ -102,7 +105,7 @@ class Runner(object):
             exc_type=repr(excinfo.type),
             exc_value=traceback.format_exception_only(excinfo.type, excinfo.value)[-1],
             extracted_traceback=extracted_traceback,
-            result=result,
+            result_state=result,
             when=when
         )
 
@@ -111,7 +114,7 @@ class Runner(object):
 
 
 class PytestRunner(Runner):
-    _test_fail_states = ['failed', 'error', None, '']
+    _test_fail_states = ['xfail', 'failed', 'error', None, '']
 
     def get_test_id(self, test):
         return test.nodeid #.replace('/', '.')
