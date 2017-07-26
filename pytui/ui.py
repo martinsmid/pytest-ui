@@ -230,7 +230,7 @@ class Store(object):
             position is the position in ui listbox, and should be
             equal to position in the list of filtered tests
         """
-        tests = self._get_tests(False, True)
+        tests = self._get_tests(self.show_failed_only, True)
         keys = tests.keys()
         next_pos = position
 
