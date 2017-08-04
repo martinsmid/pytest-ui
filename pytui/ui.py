@@ -11,10 +11,11 @@ import multiprocessing
 from collections import OrderedDict, defaultdict
 
 import logging_tools
+from logging_tools import get_logger, DEBUG_0
 from runner import PytestRunner
 
 
-logger = logging_tools.get_logger(__name__)
+logger = get_logger(__name__)
 
 
 class TestLine(urwid.Widget):
@@ -350,13 +351,13 @@ class TestRunnerUI(object):
         """
             Parse data received by client and execute encoded action
         """
-        logger.debug('received_output start')
+        logger.log(DEBUG_0, 'received_output start')
         # release the write end if waiting for read
         with self.pipe_size.get_lock():
             self.pipe_size.value -= len(data)
 
-        # logger.debug('received_output %s', data)
-        logger.debug('received_output size: %s, pipe_size: %s',
+        # logger.log(DEBUG_0, 'received_output %s', data)
+        logger.log(DEBUG_0, 'received_output size: %s, pipe_size: %s',
                      len(data), self.pipe_size.value)
         for chunk in data.split('\n'):
             if not chunk:
@@ -364,7 +365,7 @@ class TestRunnerUI(object):
             try:
                 if self.receive_buffer:
                     chunk = self.receive_buffer + chunk
-                    logger.debug('Using buffer')
+                    logger.log(DEBUG_0, 'Using buffer')
                     self.receive_buffer = ''
 
                 payload = json.loads(chunk)

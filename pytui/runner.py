@@ -14,17 +14,18 @@ import unittest
 from StringIO import StringIO
 
 import logging_tools
+from logging_tools import get_logger, LogWriter
+
 from plugin import PytestPlugin
 
 
-logger = logging_tools.get_logger(__name__)
-pipe_logger = logging_tools.get_logger(__name__, 'pipe')
-stdout_logger = logging_tools.get_logger(__name__, 'stdout')
-stdout_logger_writer = logging_tools.LogWriter(stdout_logger)
-stderr_logger = logging_tools.get_logger(__name__, 'stderr')
-stderr_logger_writer = logging_tools.LogWriter(stderr_logger)
+logger = get_logger(__name__)
+pipe_logger = get_logger(__name__, 'pipe')
+stdout_logger = get_logger(__name__, 'stdout')
+stdout_logger_writer = LogWriter(stdout_logger)
+stderr_logger = get_logger(__name__, 'stderr')
+stderr_logger_writer = LogWriter(stderr_logger)
 PIPE_LIMIT = 4096
-LOW_DEBUG = logging.DEBUG - 1
 
 
 def get_chunks(string):
@@ -50,7 +51,7 @@ class Runner(object):
         data_size = len(data)
         pipe_logger.debug('pipe write, data size: %s, pipe size: %s',
                           data_size, self.pipe_size.value)
-        pipe_logger.log(LOW_DEBUG, 'data: %s', data)
+        pipe_logger.debug('data: %s', data)
 
         for chunk in get_chunks(data):
             self.pipe_send_chunk(chunk)

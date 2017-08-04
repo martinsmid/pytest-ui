@@ -1,5 +1,10 @@
 import logging
 import logging.config
+import settings
+
+DEBUG_0 = 0
+DEBUG_1 = 1
+DEBUG_2 = 2
 
 
 def get_logger(name, *args):
@@ -41,8 +46,9 @@ def configure(filename):
                 'handlers': ['logfile'],
                 'level': 'DEBUG',
             },
-            'project.pytui.runner.pipe': {
-                'level': 'DEBUG'
+            'project.runner.pipe': {
+                'level': 'INFO',
+                'propagate': False,
             },
             'project.pytui': {
                 'handlers': ['logfile'],
@@ -55,4 +61,9 @@ def configure(filename):
             'level': 'DEBUG',
         }
     }
+
+    for module in settings.DEBUG_MODULES:
+        logging_dict['loggers'][module]['level'] = 'DEBUG'
+        logging_dict['loggers'][module]['propagate'] = False
+
     logging.config.dictConfig(logging_dict)

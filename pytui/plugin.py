@@ -12,7 +12,7 @@ class PytestPlugin(object):
         logger.debug('plugin init %s %s', runner, filter_value)
 
     def pytest_runtest_protocol(self, item, nextitem):
-        logger.debug('pytest_runtest_protocol %s %s', item, nextitem)
+        logger.debug('pytest_runtest_protocol %s %s', item.nodeid, nextitem)
 
     def pytest_collectreport(self, report):
         logger.debug('pytest_collectreport %s', report)
@@ -21,32 +21,32 @@ class PytestPlugin(object):
         logger.debug('pytest_report_teststatus %s', report)
 
     def pytest_runtest_setup(self, item):
-        logger.debug('pytest_runtest_setup %s', item)
+        logger.debug('pytest_runtest_setup %s', item.nodeid)
         self.runner.set_test_state(
             item.nodeid,
             'setup'
         )
 
     def pytest_runtest_call(self, item):
-        logger.debug('pytest_runtest_call %s', item)
+        logger.debug('pytest_runtest_call %s', item.nodeid)
         self.runner.set_test_state(
             item.nodeid,
             'call'
         )
 
     def pytest_runtest_teardown(self, item):
-        logger.debug('pytest_runtest_teardown %s', item)
+        logger.debug('pytest_runtest_teardown %s', item.nodeid)
         self.runner.set_test_state(
             item.nodeid,
             'teardown'
         )
 
     def pytest_itemcollected(self, item):
-        logger.debug('pytest_itemcollected %s', item)
+        logger.debug('pytest_itemcollected %s', item.nodeid)
         self.runner.item_collected(item)
 
     def pytest_runtest_makereport(self, item, call):
-        logger.debug('pytest_runtest_makereport %s %s %s', item, call.when, str(call.excinfo))
+        logger.debug('pytest_runtest_makereport %s %s %s', item.nodeid, call.when, str(call.excinfo))
         evalxfail = getattr(item, '_evalxfail', None)
         wasxfail = evalxfail and evalxfail.wasvalid() and evalxfail.istrue()
         if wasxfail:
