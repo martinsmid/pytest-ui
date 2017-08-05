@@ -175,7 +175,7 @@ class Store(object):
         test_data['exc_value'] = exc_value
         test_data['exc_tb'] = extracted_traceback
 
-        # Ignore success, except for the test run (call)
+        # Ignore success, except for the 'call' step
         # ignore successive failure, take only the first
         if (outcome != 'passed' or when == 'call') \
             and not test_data.get('result_state'):
@@ -196,7 +196,7 @@ class Store(object):
 
     def set_exception_info(self, test_id, exc_type, exc_value, extracted_traceback, result_state, when):
         self.set_test_result(
-            test_id, result_state, exc_value, when, 'failed',
+            test_id, result_state, exc_value, when, result_state,
             exc_type, exc_value, extracted_traceback
         )
 
@@ -267,6 +267,7 @@ class TestRunnerUI(object):
 
         # result states
         ('xfail',       'light red',  '',             '', '',     '#b00'),
+        ('xpass',       'light red',  '',             '', '',     '#b00'),
         ('failed',      'light red',  '',             '', '',     '#b00'),
         ('error',       'brown',      '',             '', '#f88', '#b00'),
         ('skipped',     'light gray', '',             '', '#f88', '#b00'),
@@ -337,7 +338,6 @@ class TestRunnerUI(object):
             args=(self.path, self.child_pipe, self.pipe_size, self.pipe_semaphore)
         )
         self.runner_process.start()
-
 
     def on_filter_change(self, filter_widget, filter_value):
         self.store.set_filter(filter_value)

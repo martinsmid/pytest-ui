@@ -89,8 +89,19 @@ class Runner(object):
             state=state
         )
 
-    def set_exception_info(self, test_id, excinfo, when, wasxfail):
-        logger.debug('exc info repr %s', excinfo._getreprcrash())
+    def set_exception_info(self, test_id, excinfo, when, wasxfail, xfail_strict):
+        if excinfo:
+            logger.debug('exc info repr %s', excinfo._getreprcrash())
+        elif wasxfail and xfail_strict:
+            self.pipe_send('set_test_result',
+                test_id=test_id,
+                output='',
+                result_state='xpass',
+                when=when,
+                outcome='passed'
+            )
+            return
+
         if wasxfail:
             result = 'xfail'
             extracted_traceback = traceback.extract_tb(excinfo.tb)
@@ -115,7 +126,7 @@ class Runner(object):
 
 
 class PytestRunner(Runner):
-    _test_fail_states = ['xfail', 'failed', 'error', None, '']
+    _test_fail_states = ['failed', 'error', None, '']
 
     def get_test_id(self, test):
         return test.nodeid #.replace('/', '.')

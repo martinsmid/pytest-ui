@@ -49,12 +49,16 @@ class PytestPlugin(object):
         logger.debug('pytest_runtest_makereport %s %s %s', item.nodeid, call.when, str(call.excinfo))
         evalxfail = getattr(item, '_evalxfail', None)
         wasxfail = evalxfail and evalxfail.wasvalid() and evalxfail.istrue()
-        if wasxfail:
-            logger.debug('wasxfail %s xfail %s', wasxfail, evalxfail.wasvalid())
+        if evalxfail:
+            xfail_strict = evalxfail.get('strict', False)
+            logger.debug('wasxfail: %s wasvalid: %s, istrue: %s, strict: %s',
+                         wasxfail, evalxfail.wasvalid(), evalxfail.istrue(), xfail_strict)
 
         if call.excinfo:
-            logger.debug('type %s reason: %s', call.excinfo, getattr(call.excinfo.value, 'msg', '-'))
-            self.runner.set_exception_info(item.nodeid, call.excinfo, call.when, wasxfail)
+            logger.debug('excinfo: %s reason: %s', call.excinfo, getattr(call.excinfo.value, 'msg', '-'))
+            self.runner.set_exception_info(item.nodeid, call.excinfo, call.when, wasxfail, None)
+        elif wasxfail and xfail_strict:
+            self.runner.set_exception_info(item.nodeid, None, call.when, wasxfail, xfail_strict)
 
     def pytest_runtest_logreport(self, report):
         logger.debug('pytest_runtest_logreport %s', report)
