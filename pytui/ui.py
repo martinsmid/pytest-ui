@@ -11,10 +11,11 @@ import multiprocessing
 from collections import OrderedDict, defaultdict
 
 import logging_tools
+from logging_tools import get_logger, DEBUG_0
 from runner import PytestRunner
 
 
-logger = logging_tools.get_logger(__name__)
+logger = get_logger(__name__)
 
 
 class TestLine(urwid.Widget):
@@ -144,21 +145,22 @@ class Store(object):
     def get_test_position(self, test_id):
         return self.test_data[test_id]['position']
 
-
     def get_failed_test_count(self):
         return len([test_id for test_id, test in self.current_test_list.iteritems()
                         if self.is_test_failed(test)])
 
-    def _get_tests(self, failed_only=True, filtered=True):
+    def _get_tests(self, failed_only=True, filtered=True, include_lf_exempt=True):
         return OrderedDict([(test_id, test) for test_id, test in self.test_data.iteritems()
                                   if (not failed_only
-                                      or (failed_only and self.is_test_failed(test)))
+                                      or self.is_test_failed(test))
                                   and (not filtered
-                                      or (filtered and self.is_test_filtered(test_id)))
+                                      or self.is_test_filtered(test_id))
+                                  and (not test.get('last_failed_exempt')
+                                      or include_lf_exempt)
                           ])
 
     def set_test_result(self, test_id, result_state, output, when, outcome,
-                        exc_type=None, exc_value=None, extracted_traceback=None):
+                        exc_type=None, exc_value=None, extracted_traceback=None, last_failed_exempt=None):
         if not test_id in self.test_data:
             self.test_data[test_id] = {
                 'id': test_id
@@ -174,8 +176,10 @@ class Store(object):
         test_data['exc_type'] = exc_type
         test_data['exc_value'] = exc_value
         test_data['exc_tb'] = extracted_traceback
+        if when == 'call' and last_failed_exempt is not None:
+            test_data['last_failed_exempt'] = last_failed_exempt
 
-        # Ignore success, except for the test run (call)
+        # Ignore success, except for the 'call' step
         # ignore successive failure, take only the first
         if (outcome != 'passed' or when == 'call') \
             and not test_data.get('result_state'):
@@ -194,9 +198,9 @@ class Store(object):
         self.ui.update_test_line(test_data)
         self.ui.set_listbox_focus(test_data)
 
-    def set_exception_info(self, test_id, exc_type, exc_value, extracted_traceback, result, when):
+    def set_exception_info(self, test_id, exc_type, exc_value, extracted_traceback, result_state, when):
         self.set_test_result(
-            test_id, result, exc_value, when, 'failed',
+            test_id, result_state, exc_value, when, result_state,
             exc_type, exc_value, extracted_traceback
         )
 
@@ -266,9 +270,11 @@ class TestRunnerUI(object):
         ('statusline',  'white',      'dark blue',    '', '',     ''),
 
         # result states
+        ('xfail',       'brown',  '',             '', '',     '#b00'),
+        ('xpass',       'brown',  '',             '', '',     '#b00'),
         ('failed',      'light red',  '',             '', '',     '#b00'),
         ('error',       'brown',      '',             '', '#f88', '#b00'),
-        ('skipped',     'light gray', '',             '', '#f88', '#b00'),
+        ('skipped',     'brown', '',             '', '#f88', '#b00'),
         ('ok',          'dark green', '',             '', '',     ''),
 
 
@@ -337,7 +343,6 @@ class TestRunnerUI(object):
         )
         self.runner_process.start()
 
-
     def on_filter_change(self, filter_widget, filter_value):
         self.store.set_filter(filter_value)
         self.init_test_listbox()
@@ -350,13 +355,13 @@ class TestRunnerUI(object):
         """
             Parse data received by client and execute encoded action
         """
-        logger.debug('received_output start')
+        logger.log(DEBUG_0, 'received_output start')
         # release the write end if waiting for read
         with self.pipe_size.get_lock():
             self.pipe_size.value -= len(data)
 
-        # logger.debug('received_output %s', data)
-        logger.debug('received_output size: %s, pipe_size: %s',
+        # logger.log(DEBUG_0, 'received_output %s', data)
+        logger.log(DEBUG_0, 'received_output size: %s, pipe_size: %s',
                      len(data), self.pipe_size.value)
         for chunk in data.split('\n'):
             if not chunk:
@@ -364,7 +369,7 @@ class TestRunnerUI(object):
             try:
                 if self.receive_buffer:
                     chunk = self.receive_buffer + chunk
-                    logger.debug('Using buffer')
+                    logger.log(DEBUG_0, 'Using buffer')
                     self.receive_buffer = ''
 
                 payload = json.loads(chunk)
@@ -422,7 +427,7 @@ class TestRunnerUI(object):
         logger.info('Running tests (failed_only: %r, filtered: %r)', failed_only, filtered)
         self._first_failed_focused = False
 
-        tests = self.store._get_tests(failed_only, filtered)
+        tests = self.store._get_tests(failed_only, filtered, include_lf_exempt=False)
         self.store.invalidate_test_results(tests)
 
         self.runner_process = multiprocessing.Process(
