@@ -57,7 +57,7 @@ class PytestPlugin(object):
         if call.excinfo:
             logger.debug('excinfo: %s reason: %s', call.excinfo, getattr(call.excinfo.value, 'msg', '-'))
             self.runner.set_exception_info(item.nodeid, call.excinfo, call.when, wasxfail, None)
-        elif wasxfail and xfail_strict:
+        elif wasxfail and call.when == 'call':
             self.runner.set_exception_info(item.nodeid, None, call.when, wasxfail, xfail_strict)
 
     def pytest_runtest_logreport(self, report):

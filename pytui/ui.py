@@ -149,16 +149,18 @@ class Store(object):
         return len([test_id for test_id, test in self.current_test_list.iteritems()
                         if self.is_test_failed(test)])
 
-    def _get_tests(self, failed_only=True, filtered=True):
+    def _get_tests(self, failed_only=True, filtered=True, include_lf_exempt=True):
         return OrderedDict([(test_id, test) for test_id, test in self.test_data.iteritems()
                                   if (not failed_only
-                                      or (failed_only and self.is_test_failed(test)))
+                                      or self.is_test_failed(test))
                                   and (not filtered
-                                      or (filtered and self.is_test_filtered(test_id)))
+                                      or self.is_test_filtered(test_id))
+                                  and (not test.get('last_failed_exempt')
+                                      or include_lf_exempt)
                           ])
 
     def set_test_result(self, test_id, result_state, output, when, outcome,
-                        exc_type=None, exc_value=None, extracted_traceback=None):
+                        exc_type=None, exc_value=None, extracted_traceback=None, last_failed_exempt=None):
         if not test_id in self.test_data:
             self.test_data[test_id] = {
                 'id': test_id
@@ -174,6 +176,8 @@ class Store(object):
         test_data['exc_type'] = exc_type
         test_data['exc_value'] = exc_value
         test_data['exc_tb'] = extracted_traceback
+        if when == 'call' and last_failed_exempt is not None:
+            test_data['last_failed_exempt'] = last_failed_exempt
 
         # Ignore success, except for the 'call' step
         # ignore successive failure, take only the first
@@ -266,11 +270,11 @@ class TestRunnerUI(object):
         ('statusline',  'white',      'dark blue',    '', '',     ''),
 
         # result states
-        ('xfail',       'light red',  '',             '', '',     '#b00'),
-        ('xpass',       'light red',  '',             '', '',     '#b00'),
+        ('xfail',       'brown',  '',             '', '',     '#b00'),
+        ('xpass',       'brown',  '',             '', '',     '#b00'),
         ('failed',      'light red',  '',             '', '',     '#b00'),
         ('error',       'brown',      '',             '', '#f88', '#b00'),
-        ('skipped',     'light gray', '',             '', '#f88', '#b00'),
+        ('skipped',     'brown', '',             '', '#f88', '#b00'),
         ('ok',          'dark green', '',             '', '',     ''),
 
 
@@ -423,7 +427,7 @@ class TestRunnerUI(object):
         logger.info('Running tests (failed_only: %r, filtered: %r)', failed_only, filtered)
         self._first_failed_focused = False
 
-        tests = self.store._get_tests(failed_only, filtered)
+        tests = self.store._get_tests(failed_only, filtered, include_lf_exempt=False)
         self.store.invalidate_test_results(tests)
 
         self.runner_process = multiprocessing.Process(

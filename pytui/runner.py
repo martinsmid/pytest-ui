@@ -92,14 +92,18 @@ class Runner(object):
     def set_exception_info(self, test_id, excinfo, when, wasxfail, xfail_strict):
         if excinfo:
             logger.debug('exc info repr %s', excinfo._getreprcrash())
-        elif wasxfail and xfail_strict:
-            self.pipe_send('set_test_result',
-                test_id=test_id,
-                output='',
-                result_state='xpass',
-                when=when,
-                outcome='passed'
-            )
+        elif wasxfail:
+            if when == 'call':
+                self.pipe_send('set_test_result',
+                    test_id=test_id,
+                    output='',
+                    result_state='failed' if xfail_strict else 'xpass',
+                    when=when,
+                    outcome='passed',
+                    last_failed_exempt=xfail_strict,
+                )
+                if xfail_strict:
+                    logger.debug('LF EXEMPT %s', test_id)
             return
 
         if wasxfail:
