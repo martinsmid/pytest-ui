@@ -48,12 +48,10 @@ def configure(filename):
             },
             'project.runner.pipe': {
                 'level': 'INFO',
-                'propagate': False,
             },
             'project.pytui': {
                 'handlers': ['logfile'],
                 'level': 'DEBUG',
-                'propagate': False,
             },
         },
         'root': {
@@ -64,6 +62,7 @@ def configure(filename):
 
     for module in settings.DEBUG_MODULES:
         logging_dict['loggers'][module]['level'] = 'DEBUG'
-        logging_dict['loggers'][module]['propagate'] = False
+        # logging_dict['loggers'][module]['handlers'] = ['logfile']
+        # logging_dict['loggers'][module]['propagate'] = False
 
     logging.config.dictConfig(logging_dict)
