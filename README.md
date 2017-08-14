@@ -2,13 +2,13 @@
 Text User Interface for running python tests.
 
 # controls
-  - r, f5 - run tests (last failed or first run, using filter)
-  - R, ctrl + f5 - run all tests (using filter)
-  - / - focus filter bar
-  - ctrl + f - clear filter bar and focus
-  - f4 - toggle show only failed tests
-  - meta + up/down - navigate between failed tests (skipping passed)
-  - q - quit
+  - <kbd>r</kbd>, <kbd>f5</kbd> - run tests (last failed or first run, using filter)
+  - <kbd>R</kbd>, <kbd>ctrl</kbd> + <kbd>f5</kbd> - run all tests (using filter)
+  - <kbd>/</kbd> - focus filter bar
+  - <kbd>ctrl</kbd> + <kbd>f</kbd> - clear filter bar and focus
+  - <kbd>f4</kbd> - toggle show only failed tests
+  - <kbd>meta</kbd> + <kbd>up</kbd>/<kbd>down</kbd> - navigate between failed tests (skipping passed)
+  - <kbd>q<kbd> - quit
 
 # main goals
 The goal of this project is to ease the testing process by
