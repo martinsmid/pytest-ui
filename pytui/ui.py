@@ -68,11 +68,10 @@ class StatusLine(urwid.Widget):
         (maxcol,) = size
 
         stats = self.stats_callback()
-        return urwid.TextCanvas(
-            ['Total: {} Filtered: {} Failed: {}'.format(stats['total'],
-                                                        stats['filtered'],
-                                                        stats['failed'])],
-            maxcol=maxcol)
+        stats_str = ' Total: {} Filtered: {} Failed: {}' \
+                    .format(stats['total'], stats['filtered'], stats['failed'])
+        full_str = '{} {}'.format(stats_str, ' '*(maxcol - len(stats_str) - 10 - 1) + 'pytui 0.1 ')
+        return urwid.TextCanvas([full_str], maxcol=maxcol)
 
 
 class TestResultWindow(urwid.LineBox):
@@ -96,10 +95,12 @@ class TestResultWindow(urwid.LineBox):
     def keypress(self, size, key):
         if key == 'q':
             self.escape_method()
+            return None
 
-        self._original_widget.keypress(size, key)
+        return key
+        # self._original_widget.keypress(size, key)
 
-        return None
+        # return None
 
     def selectable(self):
         return True
@@ -107,6 +108,16 @@ class TestResultWindow(urwid.LineBox):
     def set_focus(self, item):
         self._original_widget.set_focus(item)
 
+
+class FilterEdit(urwid.Edit):
+    def __init__(self, *args, **kwargs):
+        super(FilterEdit, self).__init__(*args, **kwargs)
+
+    def keypress(self, size, key):
+        if key == 'enter':
+            return key
+        else:
+            return super(FilterEdit, self).keypress(size, key)
 
 
 class Store(object):
@@ -265,18 +276,17 @@ class Store(object):
 class TestRunnerUI(object):
     palette = [
         ('reversed',    '',           'dark green'),
-        ('edit',        '',           'black',    '', '',     '#008'),
-        ('edit_focus',  '',           'dark gray',   '', '',     '#00b'),
-        ('statusline',  'white',      'dark blue',    '', '',     ''),
+        ('edit',        '',           'dark blue',    '', '',  '#008'),
+        ('edit_focus',  '',           'light blue',   '', '',  '#00b'),
+        ('statusline',  'white',      'dark blue',    '', '',  ''),
 
         # result states
-        ('xfail',       'brown',  '',             '', '',     '#b00'),
-        ('xpass',       'brown',  '',             '', '',     '#b00'),
+        ('xfail',       'brown',      '',             '', '',     '#b00'),
+        ('xpass',       'brown',      '',             '', '',     '#b00'),
         ('failed',      'light red',  '',             '', '',     '#b00'),
         ('error',       'brown',      '',             '', '#f88', '#b00'),
-        ('skipped',     'brown', '',             '', '#f88', '#b00'),
+        ('skipped',     'brown',      '',             '', '#f88', '#b00'),
         ('ok',          'dark green', '',             '', '',     ''),
-
 
         # run states
         ('setup',       'white',      'dark blue',             '', '',     ''),
@@ -295,6 +305,7 @@ class TestRunnerUI(object):
         self.main_loop = None
         self.w_main = None
         self._first_failed_focused = False
+        self._popup_original = None
 
         # process comm
         self.child_pipe = None
@@ -306,29 +317,28 @@ class TestRunnerUI(object):
         self.init_main_screen()
 
     def init_main_screen(self):
-        self.w_filter_edit = urwid.Edit('Filter ')
+        self.w_filter_edit = FilterEdit(' Filter ')
         aw_filter_edit = urwid.AttrMap(self.w_filter_edit, 'edit', 'edit_focus')
         self.w_status_line = urwid.AttrMap(StatusLine(self.store.get_test_stats), 'statusline', '')
         urwid.connect_signal(self.w_filter_edit, 'change', self.on_filter_change)
         self.init_test_listbox()
         self.w_main = urwid.Padding(
             urwid.Pile([
-                ('pack', urwid.Text(u'Python Urwid Test Runner', align='center')),
-                ('pack', urwid.Divider()),
+                ('pack', self.w_status_line),
                 ('pack', aw_filter_edit),
                 ('pack', urwid.Divider()),
                 self.w_test_listbox,
                 ('pack', urwid.Divider()),
-                ('pack', self.w_status_line),
             ]),
             left=2, right=2
         )
+        self.PILE_LISTBOX_POSITION = 3
 
     def init_test_listbox(self):
         self.w_test_listbox = self.test_listbox(self.store.current_test_list.keys())
         if self.w_main:
             self.w_status_line.original_widget._invalidate()
-            self.w_main.original_widget.widget_list[4] = self.w_test_listbox
+            self.w_main.original_widget.widget_list[self.PILE_LISTBOX_POSITION] = self.w_test_listbox
             self.w_main.original_widget._invalidate()
 
     def init_test_data(self):
@@ -346,10 +356,6 @@ class TestRunnerUI(object):
     def on_filter_change(self, filter_widget, filter_value):
         self.store.set_filter(filter_value)
         self.init_test_listbox()
-        # self.w_main.original_widget._invalidate()
-        # self.w_status_line.original_widget._invalidate()
-        # self.main_loop.widget._invalidate()
-        # self.main_loop.draw_screen()
 
     def received_output(self, data):
         """
@@ -406,20 +412,12 @@ class TestRunnerUI(object):
         logger.debug('Running main urwid loop')
         self.main_loop.run()
 
-    def popup(self, widget):
-        self._popup_original = self.main_loop.widget
-        self.main_loop.widget = urwid.Overlay(
-            widget,
-            self._popup_original,
-            'center', ('relative', 90), 'middle', ('relative', 85)
-        )
-
     def run_tests(self, failed_only=True, filtered=None):
         if self.runner_process and self.runner_process.is_alive():
             logger.info('Tests are already running')
             return
 
-        self.w_main.original_widget.focus_position = 4
+        self.w_main.original_widget.focus_position = self.PILE_LISTBOX_POSITION
 
         if filtered is None:
             filtered = self.store.filter_value
@@ -437,36 +435,6 @@ class TestRunnerUI(object):
                   self.pipe_semaphore, self.store.filter_value)
         )
         self.runner_process.start()
-
-        # self.w_test_listbox._invalidate()
-        # self.w_main._invalidate()
-        # self.main_loop.draw_screen()
-
-    def _run_test(self, test_id):
-        self.test_data[test_id]['widget']._invalidate()
-
-        # self.w_test_listbox._invalidate()
-        # self.w_main._invalidate()
-        self.main_loop.draw_screen()
-
-        _orig_stdout = sys.stdout
-        _orig_stderr = sys.stderr
-        sys.stdout = StringIO()
-        sys.stderr = StringIO()
-
-        # TODO use runner
-
-        sys.stdout.close()
-        sys.stderr.close()
-
-        sys.stdout = _orig_stdout
-        sys.stderr = _orig_stderr
-
-        self.test_data[test_id]['widget']._invalidate()
-        # self.w_test_listbox._invalidate()
-        # self.w_main._invalidate()
-        self.w_status_line.original_widget._invalidate()
-        self.main_loop.draw_screen()
 
     def update_test_result(self, test_data):
         display_result_state = test_data.get('result_state', '')
@@ -490,6 +458,21 @@ class TestRunnerUI(object):
             test_data['lw_widget']._invalidate()
             self.main_loop.draw_screen()
 
+    def popup(self, widget):
+        if self._popup_original:
+            self.popup_close()
+
+        self._popup_original = self.main_loop.widget
+        self.main_loop.widget = urwid.Overlay(
+            widget,
+            self._popup_original,
+            'center', ('relative', 90), 'middle', ('relative', 85)
+        )
+
+    def popup_close(self):
+        self.main_loop.widget = self._popup_original
+        self._popup_original = None
+
     def show_test_detail(self, widget, test_id):
         test_data = self.store.test_data[test_id]
         output = test_data.get('output', '')
@@ -504,8 +487,6 @@ class TestRunnerUI(object):
         self.popup(result_window)
         result_window.set_focus(0)
 
-    def popup_close(self):
-        self.main_loop.widget = self._popup_original
 
     def get_list_item(self, test_id, position):
         test_data = self.store.test_data[test_id]
@@ -536,6 +517,8 @@ class TestRunnerUI(object):
             next_pos = self.store.get_test_position(next_id)
             self.w_test_listbox.set_focus(next_pos, 'above' if direction == 1 else 'below')
             self.w_test_listbox._invalidate()
+            if self._popup_original:
+                self.show_test_detail(None, next_id)
 
     def set_listbox_focus(self, test_data):
         # set listbox focus if not already focused on first failed
@@ -554,10 +537,10 @@ class TestRunnerUI(object):
         if key in ('q', 'Q'):
             self.quit()
         elif key == '/':
-            self.w_main.original_widget.set_focus(2)
+            self.w_main.original_widget.set_focus(1)
         elif key == 'ctrl f':
             self.w_filter_edit.set_edit_text('')
-            self.w_main.original_widget.set_focus(2)
+            self.w_main.original_widget.set_focus(1)
         elif key == 'R' or key == 'ctrl f5':
             self.run_tests(False)
         elif key == 'r' or key == 'f5':
@@ -568,6 +551,8 @@ class TestRunnerUI(object):
             self.focus_failed_sibling(-1)
         elif key == 'f4':
             self.store.show_failed_only = not self.store.show_failed_only
+        elif key == 'enter':
+            self.w_main.original_widget.focus_position = self.PILE_LISTBOX_POSITION
 
 
 def main():
