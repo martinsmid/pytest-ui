@@ -49,6 +49,12 @@ def configure(filename):
             'project.runner.pipe': {
                 'level': 'INFO',
             },
+            'project.pytui.runner.stdout': {
+                'level': 'INFO',
+            },
+            'project.pytui.runner.stderr': {
+                'level': 'INFO',
+            },
             'project.pytui': {
                 'handlers': ['logfile'],
                 'level': 'DEBUG',

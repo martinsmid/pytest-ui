@@ -1,6 +1,10 @@
 # pytest-ui
 Text User Interface for running python tests.
 
+# pip
+  - https://pypi.python.org/pypi/pytest-ui
+  - `pip install pytest-ui`
+
 # controls
   - <kbd>r</kbd>, <kbd>f5</kbd> - run tests (last failed or first run, using filter)
   - <kbd>R</kbd>, <kbd>ctrl</kbd> + <kbd>f5</kbd> - run all tests (using filter)
