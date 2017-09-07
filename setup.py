@@ -3,7 +3,7 @@ from setuptools import setup
 setup(
     name='pytest-ui',
     description='Text User Interface for running python tests',
-    version='0.1b',
+    version='0.2b1',
     license='MIT',
     platforms=['linux', 'osx', 'win32'],
     packages=['pytui'],
