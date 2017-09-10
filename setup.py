@@ -1,9 +1,11 @@
 from setuptools import setup
 
+from pytui.settings import VERSION
+
 setup(
     name='pytest-ui',
     description='Text User Interface for running python tests',
-    version='0.2b1',
+    version=VERSION,
     license='MIT',
     platforms=['linux', 'osx', 'win32'],
     packages=['pytui'],

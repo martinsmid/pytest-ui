@@ -10,6 +10,7 @@ import traceback
 import multiprocessing
 from collections import OrderedDict, defaultdict
 
+import settings
 import logging_tools
 from logging_tools import get_logger, DEBUG_0
 from runner import PytestRunner
@@ -66,7 +67,6 @@ class StatusLine(urwid.Widget):
 
     def render(self, size, focus=False):
         (maxcol,) = size
-
         stats = self.stats_callback()
         return urwid.TextCanvas(
             ['Total: {} Filtered: {} Failed: {}'.format(stats['total'],
