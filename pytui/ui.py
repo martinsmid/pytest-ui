@@ -14,8 +14,12 @@ import logging_tools
 from logging_tools import get_logger, DEBUG_0
 from runner import PytestRunner
 
+logging_tools.configure('pytui-ui.log')
+logger = get_logger('ui')
+logger.info('ui logger')
+logger.debug('ui logger')
 
-logger = get_logger(__name__)
+# logger = None
 
 
 class TestLine(urwid.Widget):
@@ -356,29 +360,24 @@ class TestRunnerUI(object):
             Parse data received by client and execute encoded action
         """
         logger.log(DEBUG_0, 'received_output start')
-        # release the write end if waiting for read
-        with self.pipe_size.get_lock():
-            self.pipe_size.value -= len(data)
-
         # logger.log(DEBUG_0, 'received_output %s', data)
         logger.log(DEBUG_0, 'received_output size: %s, pipe_size: %s',
                      len(data), self.pipe_size.value)
-        for chunk in data.split('\n'):
+        self.receive_buffer += data
+        for chunk in self.receive_buffer.split('\n'):
             if not chunk:
                 continue
             try:
-                if self.receive_buffer:
-                    chunk = self.receive_buffer + chunk
-                    logger.log(DEBUG_0, 'Using buffer')
-                    self.receive_buffer = ''
-
                 payload = json.loads(chunk)
                 assert 'method' in payload
                 assert 'params' in payload
             except Exception as e:
-                logger.debug('Failed to parse runner input: \n"%s"\n', chunk)
-                self.receive_buffer += chunk
-                self.pipe_semaphore.set()
+                logger.debug('Failed to parse runner input: "%s"', chunk)
+                logger.debug('releasing semaphore')
+                # self.pipe_semaphore.set()
+                # release the write end if waiting for read
+                with self.pipe_size.get_lock():
+                    self.pipe_size.value -= len(data)
                 return
 
             try:
@@ -393,8 +392,12 @@ class TestRunnerUI(object):
             except:
                 logger.exception('Error in handler "%s"', payload['method'])
 
-        self.pipe_semaphore.set()
+        # logger.debug('releasing semaphore')
+        # self.pipe_semaphore.set()
         # self.w_main._invalidate()
+        # release the write end if waiting for read
+        with self.pipe_size.get_lock():
+            self.pipe_size.value -= len(data)
 
 
     def run(self):
@@ -574,7 +577,7 @@ def main():
     import sys
     import logging_tools
     path = sys.argv[1] if len(sys.argv) - 1 else '.'
-    logging_tools.configure('pytui-ui.log')
+
     logger.info('Configured logging')
 
     ui = TestRunnerUI(PytestRunner, path)

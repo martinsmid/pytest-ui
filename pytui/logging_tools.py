@@ -8,7 +8,7 @@ DEBUG_2 = 2
 
 
 def get_logger(name, *args):
-    return logging.getLogger('.'.join(['project', name] + list(args)))
+    return logging.getLogger('.'.join(['pytui', name] + list(args)))
 
 
 class LogWriter(object):
@@ -25,9 +25,10 @@ class LogWriter(object):
 def configure(filename):
     logging_dict = {
         'version': 1,
+        'disable_existing_loggers': True,
         'formatters': {
             'process': {
-                'format': '%(name)-25s  %(levelname)5s  %(message)s',
+                'format': '%(created)s %(msecs)-15s %(name)-25s  %(levelname)5s  %(message)s',
             }
         },
         'handlers': {
@@ -42,27 +43,27 @@ def configure(filename):
             }
         },
         'loggers': {
-            'project': {
+            'pytui': {
                 'handlers': ['logfile'],
-                'level': 'DEBUG',
+                'level': DEBUG_0,
             },
-            'project.runner.pipe': {
-                'level': 'INFO',
-            },
-            'project.pytui.runner.stdout': {
-                'level': 'INFO',
-            },
-            'project.pytui.runner.stderr': {
-                'level': 'INFO',
-            },
-            'project.pytui': {
-                'handlers': ['logfile'],
-                'level': 'DEBUG',
-            },
+            # 'pytui.runner.pipe': {
+            #     'level': 'INFO',
+            # },
+            # 'pytui.runner.stdout': {
+            #     'level': 'INFO',
+            # },
+            # 'pytui.runner.stderr': {
+            #     'level': 'INFO',
+            # },
+            # 'pytui': {
+            #     'handlers': ['logfile'],
+            #     'level': 'DEBUG',
+            # },
         },
         'root': {
             'handlers': ['default'],
-            'level': 'DEBUG',
+            'level': 'CRITICAL',
         }
     }
 
