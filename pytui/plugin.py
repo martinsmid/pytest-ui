@@ -2,7 +2,7 @@ import logging_tools
 from common import get_filter_regex
 
 
-logger = logging_tools.get_logger(__name__)
+logger = logging_tools.get_logger('runner.plugin')
 
 
 class PytestPlugin(object):

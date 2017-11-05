@@ -1,3 +1,4 @@
+# coding: utf-8
 import unittest
 import time
 
@@ -21,3 +22,11 @@ class TestE(unittest.TestCase):
         for i in xrange(10):
             time.sleep(0.1)
             print 'Few lines %d' % i
+
+    def test_long_traceback(self):
+        def recursive(n):
+            if n == 0:
+                raise Exception(u'\u1155\u1166'.encode('utf-8'))
+            recursive(n-1)
+
+        recursive(100)

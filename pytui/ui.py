@@ -11,11 +11,11 @@ import multiprocessing
 from collections import OrderedDict, defaultdict
 
 import logging_tools
-from logging_tools import get_logger, DEBUG_0
+from logging_tools import get_logger, DEBUG_B
 from runner import PytestRunner
 
-
-logger = get_logger(__name__)
+logging_tools.configure('pytui-ui.log')
+logger = get_logger('ui')
 
 
 class TestLine(urwid.Widget):
@@ -355,32 +355,30 @@ class TestRunnerUI(object):
         """
             Parse data received by client and execute encoded action
         """
-        logger.log(DEBUG_0, 'received_output start')
-        # release the write end if waiting for read
-        with self.pipe_size.get_lock():
-            self.pipe_size.value -= len(data)
-
-        # logger.log(DEBUG_0, 'received_output %s', data)
-        logger.log(DEBUG_0, 'received_output size: %s, pipe_size: %s',
-                     len(data), self.pipe_size.value)
-        for chunk in data.split('\n'):
+        logger.log(DEBUG_B, 'received_output start')
+        logger.log(DEBUG_B, 'received_output size: %s, pipe_size: %s',
+                   len(data), self.pipe_size.value)
+        self.receive_buffer += data
+        for chunk in self.receive_buffer.split('\n'):
             if not chunk:
                 continue
             try:
-                if self.receive_buffer:
-                    chunk = self.receive_buffer + chunk
-                    logger.log(DEBUG_0, 'Using buffer')
-                    self.receive_buffer = ''
-
                 payload = json.loads(chunk)
                 assert 'method' in payload
                 assert 'params' in payload
             except Exception as e:
-                logger.debug('Failed to parse runner input: \n"%s"\n', chunk)
-                self.receive_buffer += chunk
-                self.pipe_semaphore.set()
+                logger.debug('Failed to parse runner input: "%s"', chunk)
+                # release the write end if waiting for read
+                logger.log(DEBUG_B, 'pipe_size decrease to correct value')
+                with self.pipe_size.get_lock():
+                    self.pipe_size.value -= len(data)
+                    self.pipe_semaphore.set()
+                    logger.log(DEBUG_B, 'released semaphore')
                 return
 
+            # correct buffer
+            self.receive_buffer = self.receive_buffer[len(chunk)+1:]
+            logger.debug('handling method')
             try:
                 if payload['method'] == 'item_collected':
                     self.store.item_collected(**payload['params'])
@@ -393,8 +391,13 @@ class TestRunnerUI(object):
             except:
                 logger.exception('Error in handler "%s"', payload['method'])
 
-        self.pipe_semaphore.set()
         # self.w_main._invalidate()
+        # release the write end if waiting for read
+        logger.log(DEBUG_B, 'pipe_size decrease to correct value')
+        with self.pipe_size.get_lock():
+            self.pipe_size.value -= len(data)
+            self.pipe_semaphore.set()
+            logger.log(DEBUG_B, 'released semaphore')
 
 
     def run(self):
@@ -480,7 +483,7 @@ class TestRunnerUI(object):
             # self.w_test_listbox._invalidate()
             self.w_status_line.original_widget._invalidate()
         else:
-            logger.warn('Test "%s" has no ui widget', test_data['id'])
+            logger.warning('Test "%s" has no ui widget', test_data['id'])
 
         self.main_loop.draw_screen()
 
@@ -547,7 +550,7 @@ class TestRunnerUI(object):
         self.pipe_semaphore.set()
         if self.runner_process and self.runner_process.is_alive():
             self.runner_process.terminate()
-        logger.debug('releasing semaphore')
+        logger.log(DEBUG_B, 'releasing semaphore')
         raise urwid.ExitMainLoop()
 
     def unhandled_keypress(self, key):
@@ -574,7 +577,7 @@ def main():
     import sys
     import logging_tools
     path = sys.argv[1] if len(sys.argv) - 1 else '.'
-    logging_tools.configure('pytui-ui.log')
+
     logger.info('Configured logging')
 
     ui = TestRunnerUI(PytestRunner, path)
