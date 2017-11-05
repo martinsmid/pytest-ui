@@ -59,12 +59,20 @@ class Runner(object):
     def pipe_send_chunk(self, chunk):
         chunk_size = len(chunk)
         # wait for pipe to empty
-        while self.pipe_size.value + chunk_size > PIPE_LIMIT:
-            pipe_logger.debug('no space in pipe: %d', self.pipe_size.value)
-            pipe_logger.debug('  waiting for reader')
-            # self.pipe_semaphore.clear()
-            # self.pipe_semaphore.wait()
-            # pipe_logger.debug('  reader finished')
+        # pipe_logger.debug('pipe_send_chunk')
+        while True:
+            # pipe_logger.debug('pipe check cycle')
+            with self.pipe_size.get_lock():
+                pipe_writable = self.pipe_size.value + chunk_size <= PIPE_LIMIT
+                if pipe_writable:
+                    pipe_logger.debug('pipe writable')
+                    break
+
+                pipe_logger.debug('no space in pipe: %d', self.pipe_size.value)
+                pipe_logger.debug('  waiting for reader')
+                self.pipe_semaphore.clear()
+            self.pipe_semaphore.wait()
+            pipe_logger.debug('  reader finished')
 
         with self.pipe_size.get_lock():
             self.pipe_size.value += chunk_size
@@ -195,6 +203,6 @@ class PytestRunner(Runner):
         elif report.outcome == 'skipped':
             return 'skipped'
 
-        logger.warn('Unknown report outcome %s', report.outcome)
+        logger.warning('Unknown report outcome %s', report.outcome)
         return 'N/A'
 

@@ -2,9 +2,13 @@ import logging
 import logging.config
 import settings
 
-DEBUG_0 = 0
-DEBUG_1 = 1
-DEBUG_2 = 2
+
+DEBUG_A = 9
+DEBUG_B = 8
+DEBUG_C = 7
+logging.addLevelName(DEBUG_A, "DEBUG_A")
+logging.addLevelName(DEBUG_B, "DEBUG_B")
+logging.addLevelName(DEBUG_C, "DEBUG_C")
 
 
 def get_logger(name, *args):
@@ -28,7 +32,7 @@ def configure(filename):
         'disable_existing_loggers': True,
         'formatters': {
             'process': {
-                'format': '%(created)s %(msecs)-15s %(name)-25s  %(levelname)5s  %(message)s',
+                'format': '%(created)f %(msecs)25.19f %(name)-25s  %(levelname)-7s  %(message)s',
             }
         },
         'handlers': {
@@ -45,7 +49,7 @@ def configure(filename):
         'loggers': {
             'pytui': {
                 'handlers': ['logfile'],
-                'level': DEBUG_0,
+                'level': 1,
             },
             # 'pytui.runner.pipe': {
             #     'level': 'INFO',
