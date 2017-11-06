@@ -1,5 +1,5 @@
 DEBUG_MODULES = [
-    # 'project.runner.pipe',
+    # 'pytui',
 ]
 
 VERSION = '0.2b2'

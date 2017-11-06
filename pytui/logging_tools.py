@@ -2,13 +2,17 @@ import logging
 import logging.config
 import settings
 
-DEBUG_0 = 0
-DEBUG_1 = 1
-DEBUG_2 = 2
+
+DEBUG_A = 9
+DEBUG_B = 8
+DEBUG_C = 7
+logging.addLevelName(DEBUG_A, "DEBUG_A")
+logging.addLevelName(DEBUG_B, "DEBUG_B")
+logging.addLevelName(DEBUG_C, "DEBUG_C")
 
 
 def get_logger(name, *args):
-    return logging.getLogger('.'.join(['project', name] + list(args)))
+    return logging.getLogger('.'.join(['pytui', name] + list(args)))
 
 
 class LogWriter(object):
@@ -25,9 +29,10 @@ class LogWriter(object):
 def configure(filename):
     logging_dict = {
         'version': 1,
+        'disable_existing_loggers': True,
         'formatters': {
             'process': {
-                'format': '%(name)-25s  %(levelname)5s  %(message)s',
+                'format': '%(created)f %(msecs)25.19f %(name)-25s  %(levelname)-7s  %(message)s',
             }
         },
         'handlers': {
@@ -42,27 +47,27 @@ def configure(filename):
             }
         },
         'loggers': {
-            'project': {
+            'pytui': {
                 'handlers': ['logfile'],
-                'level': 'DEBUG',
+                'level': 1,
             },
-            'project.runner.pipe': {
-                'level': 'INFO',
-            },
-            'project.pytui.runner.stdout': {
-                'level': 'INFO',
-            },
-            'project.pytui.runner.stderr': {
-                'level': 'INFO',
-            },
-            'project.pytui': {
-                'handlers': ['logfile'],
-                'level': 'DEBUG',
-            },
+            # 'pytui.runner.pipe': {
+            #     'level': 'INFO',
+            # },
+            # 'pytui.runner.stdout': {
+            #     'level': 'INFO',
+            # },
+            # 'pytui.runner.stderr': {
+            #     'level': 'INFO',
+            # },
+            # 'pytui': {
+            #     'handlers': ['logfile'],
+            #     'level': 'DEBUG',
+            # },
         },
         'root': {
             'handlers': ['default'],
-            'level': 'DEBUG',
+            'level': 'CRITICAL',
         }
     }
 
