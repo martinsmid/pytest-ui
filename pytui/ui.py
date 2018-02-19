@@ -1,9 +1,14 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
 import json
 import urwid
-import thread
+import _thread
 from common import get_filter_regex
 import logging
 import traceback
@@ -69,9 +74,10 @@ class StatusLine(urwid.Widget):
         (maxcol,) = size
         stats = self.stats_callback()
         return urwid.TextCanvas(
-            ['Total: {} Filtered: {} Failed: {}'.format(stats['total'],
-                                                        stats['filtered'],
-                                                        stats['failed'])],
+            ['Total: {} Filtered: {} Failed: {}'
+             .format(stats['total'], stats['filtered'], stats['failed'])
+             .encode('utf-8')
+            ],
             maxcol=maxcol)
 
 
@@ -146,11 +152,11 @@ class Store(object):
         return self.test_data[test_id]['position']
 
     def get_failed_test_count(self):
-        return len([test_id for test_id, test in self.current_test_list.iteritems()
+        return len([test_id for test_id, test in list(self.current_test_list.items())
                         if self.is_test_failed(test)])
 
     def _get_tests(self, failed_only=True, filtered=True, include_lf_exempt=True):
-        return OrderedDict([(test_id, test) for test_id, test in self.test_data.iteritems()
+        return OrderedDict([(test_id, test) for test_id, test in list(self.test_data.items())
                                   if (not failed_only
                                       or self.is_test_failed(test))
                                   and (not filtered
@@ -209,7 +215,7 @@ class Store(object):
         self.filter_regex = get_filter_regex(filter_value)
 
     def invalidate_test_results(self, tests):
-        for test_id, test in tests.iteritems():
+        for test_id, test in list(tests.items()):
             self.clear_test_result(test_id)
 
     def clear_test_result(self, test_id):
@@ -235,7 +241,7 @@ class Store(object):
             equal to position in the list of filtered tests
         """
         tests = self._get_tests(self.show_failed_only, True)
-        keys = tests.keys()
+        keys = list(tests.keys())
         next_pos = position
 
         while True:
@@ -325,7 +331,7 @@ class TestRunnerUI(object):
         )
 
     def init_test_listbox(self):
-        self.w_test_listbox = self.test_listbox(self.store.current_test_list.keys())
+        self.w_test_listbox = self.test_listbox(list(self.store.current_test_list.keys()))
         if self.w_main:
             self.w_status_line.original_widget._invalidate()
             self.w_main.original_widget.widget_list[4] = self.w_test_listbox

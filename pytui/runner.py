@@ -1,6 +1,12 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import range
+from builtins import object
 import re
 import os
 import sys
@@ -11,7 +17,7 @@ from _pytest.runner import Skipped
 import traceback
 from collections import OrderedDict
 import unittest
-from StringIO import StringIO
+from io import StringIO
 
 import logging_tools
 from logging_tools import get_logger, LogWriter
@@ -29,7 +35,7 @@ PIPE_LIMIT = 4096
 
 
 def get_chunks(string):
-    for offset in xrange(0, len(string), PIPE_LIMIT):
+    for offset in range(0, len(string), PIPE_LIMIT):
         yield string[offset:offset+PIPE_LIMIT]
 
 
