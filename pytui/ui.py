@@ -45,10 +45,10 @@ class TestLine(urwid.Widget):
         main_attr = (self.test_data.get('runstate'), title_width)
         state_attr = (result_state_str, 10)
         return urwid.TextCanvas(
-            ['{} [{:10}]'.format(
+            [('{} [{:10}]'.format(
                 self.test_data['id'][:title_width].ljust(title_width),
                 result_state_str[:10]
-            )],
+            )).encode('utf-8')],
             maxcol=maxcol,
             attr=[[main_attr, (None, 2), state_attr, (None, 1)]]
         )
@@ -365,11 +365,11 @@ class TestRunnerUI(object):
         logger.log(DEBUG_B, 'received_output size: %s, pipe_size: %s',
                    len(data), self.pipe_size.value)
         self.receive_buffer += data
-        for chunk in self.receive_buffer.split('\n'):
+        for chunk in self.receive_buffer.split(b'\n'):
             if not chunk:
                 continue
             try:
-                payload = json.loads(chunk)
+                payload = json.loads(chunk.decode('utf-8'))
                 assert 'method' in payload
                 assert 'params' in payload
             except Exception as e:
