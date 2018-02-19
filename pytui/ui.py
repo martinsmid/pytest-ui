@@ -306,7 +306,7 @@ class TestRunnerUI(object):
         self.child_pipe = None
         self.pipe_size = multiprocessing.Value('i', 0)
         self.pipe_semaphore = multiprocessing.Event()
-        self.receive_buffer = ''
+        self.receive_buffer = b''
         self.runner_process = None
 
         self.init_main_screen()

@@ -26,5 +26,7 @@ setup(
         'Operating System :: MacOS :: MacOS X',
         'Topic :: Software Development :: Testing',
         'Topic :: Utilities',
-        'Programming Language :: Python', ],
+        'Programming Language :: Python :: 2',
+        'Programming Language :: Python :: 3',
+    ],
 )

@@ -44,15 +44,15 @@ class Runner(object):
         self.path = path
         self.tests = OrderedDict()
         logger.debug('%s Init', self.__class__.__name__)
-        self.write_pipe = os.fdopen(write_pipe, 'w', 0)
+        self.write_pipe = os.fdopen(write_pipe, 'wb', 0)
         self.pipe_size = pipe_size
         self.pipe_semaphore = pipe_semaphore
 
     def pipe_send(self, method, **kwargs):
-        data = '%s\n' % json.dumps({
+        data = bytes(b'%s\n' % json.dumps({
                 'method': method,
                 'params': kwargs
-        })
+        }).encode('utf-8'))
 
         data_size = len(data)
         pipe_logger.debug('pipe write, data size: %s, pipe size: %s',
