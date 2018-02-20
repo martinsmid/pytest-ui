@@ -1,5 +1,8 @@
 *.pyc
 test_projects/
 env/
+env3/
 *.log
 draft/*
+dist/
+pytest_ui.egg-info/
