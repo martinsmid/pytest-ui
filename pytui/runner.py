@@ -11,6 +11,7 @@ import re
 import os
 import sys
 import json
+from tblib import Traceback
 import pytest
 import logging
 from _pytest.runner import Skipped
@@ -49,6 +50,7 @@ class Runner(object):
         self.pipe_semaphore = pipe_semaphore
 
     def pipe_send(self, method, **kwargs):
+        logger.debug('kwargs %s', str({k: type(v) for k, v in kwargs.items()}))
         data = bytes(b'%s\n' % json.dumps({
                 'method': method,
                 'params': kwargs
@@ -123,19 +125,19 @@ class Runner(object):
 
         if wasxfail:
             result = 'xfail'
-            extracted_traceback = traceback.extract_tb(excinfo.tb)
+            extracted_traceback = excinfo.tb
         elif excinfo.type is Skipped:
             result = 'skipped'
             extracted_traceback = None
         else:
             result = 'failed'
-            extracted_traceback = traceback.extract_tb(excinfo.tb)
+            extracted_traceback = excinfo.tb
 
         self.pipe_send('set_exception_info',
             test_id=test_id,
             exc_type=repr(excinfo.type),
             exc_value=traceback.format_exception_only(excinfo.type, excinfo.value)[-1],
-            extracted_traceback=extracted_traceback,
+            extracted_traceback=Traceback(extracted_traceback).to_dict(),
             result_state=result,
             when=when
         )

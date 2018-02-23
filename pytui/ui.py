@@ -8,6 +8,7 @@ standard_library.install_aliases()
 from builtins import object
 import json
 import urwid
+from tblib import Traceback
 import _thread
 from common import get_filter_regex
 import logging
@@ -173,6 +174,8 @@ class Store(object):
             }
 
         if extracted_traceback:
+            py_traceback = Traceback.from_dict(extracted_traceback).as_traceback()
+            extracted_traceback = traceback.extract_tb(py_traceback)
             output += ''.join(
                 traceback.format_list(extracted_traceback) +
                 [exc_value]
@@ -384,7 +387,7 @@ class TestRunnerUI(object):
 
             # correct buffer
             self.receive_buffer = self.receive_buffer[len(chunk)+1:]
-            logger.debug('handling method')
+            logger.debug('handling method %s', payload['method'])
             try:
                 if payload['method'] == 'item_collected':
                     self.store.item_collected(**payload['params'])
