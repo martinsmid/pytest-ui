@@ -378,7 +378,7 @@ class TestRunnerUI(object):
 
             # correct buffer
             self.receive_buffer = self.receive_buffer[len(chunk)+1:]
-            logger.debug('handling method')
+            logger.debug('handling method %s', payload['method'])
             try:
                 if payload['method'] == 'item_collected':
                     self.store.item_collected(**payload['params'])
