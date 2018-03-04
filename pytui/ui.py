@@ -6,20 +6,23 @@ from __future__ import unicode_literals
 from future import standard_library
 standard_library.install_aliases()
 from builtins import object
+
+import sys
 import json
 import urwid
-from tblib import Traceback
-import _thread
-from common import get_filter_regex
 import logging
 import traceback
 import multiprocessing
+import _thread
 from collections import OrderedDict, defaultdict
 
-import settings
-import logging_tools
-from logging_tools import get_logger, DEBUG_B
-from runner import PytestRunner
+from tblib import Traceback
+
+from . import settings
+from . import logging_tools
+from .logging_tools import get_logger, DEBUG_B
+from .common import get_filter_regex
+from .runner import PytestRunner
 
 logging_tools.configure('pytui-ui.log')
 logger = get_logger('ui')
@@ -583,8 +586,6 @@ class TestRunnerUI(object):
 
 
 def main():
-    import sys
-    import logging_tools
     path = sys.argv[1] if len(sys.argv) - 1 else '.'
 
     logger.info('Configured logging')
