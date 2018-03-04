@@ -1,3 +1,4 @@
 urwid
 pytest
 tblib
+future
