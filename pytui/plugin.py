@@ -3,8 +3,9 @@ from __future__ import unicode_literals
 from builtins import str
 from builtins import filter
 from builtins import object
-import logging_tools
-from common import get_filter_regex
+
+from . import logging_tools
+from .common import get_filter_regex
 
 
 logger = logging_tools.get_logger('runner.plugin')

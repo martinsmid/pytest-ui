@@ -7,23 +7,25 @@ from future import standard_library
 standard_library.install_aliases()
 from builtins import range
 from builtins import object
+
 import re
 import os
 import sys
 import json
-from tblib import Traceback
-import pytest
-import logging
-from _pytest.runner import Skipped
-import traceback
-from collections import OrderedDict
 import unittest
+from collections import OrderedDict
 from io import StringIO
 
-import logging_tools
-from logging_tools import get_logger, LogWriter
 
-from plugin import PytestPlugin
+from tblib import Traceback
+import pytest
+from _pytest.runner import Skipped
+import traceback
+
+from . import logging_tools
+from .logging_tools import get_logger, LogWriter
+from .plugin import PytestPlugin
+
 
 log_name = 'runner'
 logger = get_logger(log_name)
