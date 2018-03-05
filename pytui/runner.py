@@ -125,19 +125,19 @@ class Runner(object):
 
         if wasxfail:
             result = 'xfail'
-            extracted_traceback = excinfo.tb
+            extracted_traceback = Traceback(excinfo.tb).to_dict()
         elif excinfo.type is Skipped:
             result = 'skipped'
             extracted_traceback = None
         else:
             result = 'failed'
-            extracted_traceback = excinfo.tb
+            extracted_traceback = Traceback(excinfo.tb).to_dict()
 
         self.pipe_send('set_exception_info',
             test_id=test_id,
             exc_type=repr(excinfo.type),
             exc_value=traceback.format_exception_only(excinfo.type, excinfo.value)[-1],
-            extracted_traceback=Traceback(extracted_traceback).to_dict(),
+            extracted_traceback=extracted_traceback,
             result_state=result,
             when=when
         )
@@ -178,7 +178,7 @@ class PytestRunner(Runner):
                           pipe_size, pipe_semaphore, filter_value):
         """ Class method as separate process entrypoint """
         logging_tools.configure('pytui-runner.log')
-        logger.info('Test run started (failed_only: %s, filtere: %s)', failed_only, filtered)
+        logger.info('Test run started (failed_only: %s, filtered: %s)', failed_only, filtered)
 
         sys.stdout = stdout_logger_writer
         # sys.stdout = sys.stderr = stdout_logger_writer
