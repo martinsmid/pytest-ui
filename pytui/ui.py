@@ -119,6 +119,9 @@ class TestResultWindow(urwid.LineBox):
         self._original_widget.set_focus(item)
 
 
+class ErrorPopupWindow(TestResultWindow):
+    pass
+
 
 class Store(object):
     def __init__(self, ui):
@@ -274,6 +277,15 @@ class Store(object):
         self._show_failed_only = value
         self.ui.init_test_listbox()
 
+    def popup_error(self, exitcode, output):
+        popup_widget = ErrorPopupWindow(
+            'Pytest init/collect failed', 'Exitcode: {0:d}\n{1:s}'
+            .format(exitcode, output),
+            None
+        )
+        self.ui.popup(popup_widget)
+        popup_widget.set_focus(0)
+
 
 class TestRunnerUI(object):
     palette = [
@@ -400,6 +412,8 @@ class TestRunnerUI(object):
                     self.store.set_exception_info(**payload['params'])
                 elif payload['method'] == 'set_test_state':
                     self.store.set_test_state(**payload['params'])
+                elif payload['method'] == 'popup_error':
+                    self.store.popup_error(**payload['params'])
             except:
                 logger.exception('Error in handler "%s"', payload['method'])
 

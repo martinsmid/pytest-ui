@@ -134,13 +134,21 @@ class Runner(object):
             result = 'failed'
             extracted_traceback = Traceback(excinfo.tb).to_dict()
 
-        self.pipe_send('set_exception_info',
+        self.pipe_send(
+            'set_exception_info',
             test_id=test_id,
             exc_type=repr(excinfo.type),
             exc_value=traceback.format_exception_only(excinfo.type, excinfo.value)[-1],
             extracted_traceback=extracted_traceback,
             result_state=result,
             when=when
+        )
+
+    def set_init_error(self, exitcode, output):
+        self.pipe_send(
+            'popup_error',
+            exitcode=exitcode,
+            output=output
         )
 
     def get_test_id(self, test):
@@ -156,9 +164,10 @@ class PytestRunner(Runner):
     def init_tests(self):
         logger.debug('Running pytest --collect-only')
 
-        pytest.main(['-p', 'no:terminal', '--collect-only', self.path],
+        exitcode = pytest.main(['-p', 'no:terminal', '--collect-only', self.path],
             plugins=[PytestPlugin(runner=self)])
 
+        return exitcode
 
     @classmethod
     def process_init_tests(cls, path, write_pipe, pipe_size, pipe_semaphore):
@@ -170,7 +179,12 @@ class PytestRunner(Runner):
         sys.stderr = stderr_logger_writer
 
         runner = cls(path, write_pipe=write_pipe, pipe_size=pipe_size, pipe_semaphore=pipe_semaphore)
-        runner.init_tests()
+        exitcode = runner.init_tests()
+        if exitcode != 0:
+            output = 'sys.stdout + sys.stderr'
+            logger.error('pytest failed with exitcode %d', exitcode)
+            logger.debug('  output %s', output)
+            runner.set_init_error(exitcode, output)
 
         logger.info('Init finished')
 
@@ -199,8 +213,12 @@ class PytestRunner(Runner):
         args = ['-p', 'no:terminal', self.path]
         if failed_only:
             args.append('--lf')
-        pytest.main(args,
-            plugins=[PytestPlugin(runner=self, filter_value=filter_value)])
+
+        exitcode = pytest.main(
+            args,
+            plugins=[PytestPlugin(runner=self, filter_value=filter_value)]
+        )
+        return exitcode
 
     def result_state(self, report):
         if not report:
