@@ -355,8 +355,7 @@ class TestRunnerUI(object):
         """
             Parse data received by client and execute encoded action
         """
-        logger.log(DEBUG_B, 'received_output start')
-        logger.log(DEBUG_B, 'received_output size: %s, pipe_size: %s',
+        logger.log(DEBUG_B, 'new data on pipe, data size: %s, pipe_size: %s',
                    len(data), self.pipe_size.value)
         self.receive_buffer += data
         for chunk in self.receive_buffer.split('\n'):
