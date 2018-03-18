@@ -2,6 +2,7 @@ from setuptools import setup
 
 from pytui.settings import VERSION
 
+
 setup(
     name='pytest-ui',
     description='Text User Interface for running python tests',
@@ -17,7 +18,16 @@ setup(
             'pytui = pytui.ui:main',
         ]
     },
-    install_requires=['urwid>=1.3.1', 'pytest>=3.0.5'],
+    install_requires=[
+        'attrs==17.4.0',
+        'future==0.16.0',
+        'pluggy==0.6.0',
+        'py==1.5.2',
+        'pytest==3.4.1',
+        'six==1.11.0',
+        'tblib==1.3.2',
+        'urwid==2.0.1',
+    ],
     classifiers=[
         'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
