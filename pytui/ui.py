@@ -24,9 +24,10 @@ from .logging_tools import get_logger, DEBUG_B
 from .common import get_filter_regex
 from .runner import PytestRunner
 
+
 logging_tools.configure('pytui-ui.log')
 logger = get_logger('ui')
-
+logger.info('Configured logging')
 
 class TestLine(urwid.Widget):
     _sizing = frozenset(['flow'])
@@ -587,8 +588,6 @@ class TestRunnerUI(object):
 
 def main():
     path = sys.argv[1] if len(sys.argv) - 1 else '.'
-
-    logger.info('Configured logging')
 
     ui = TestRunnerUI(PytestRunner, path)
     ui.run()
