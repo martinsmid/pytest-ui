@@ -56,15 +56,15 @@ def configure(filename):
                 'handlers': ['logfile'],
                 'level': 1,
             },
-            # 'pytui.runner.pipe': {
-            #     'level': 'INFO',
-            # },
-            # 'pytui.runner.stdout': {
-            #     'level': 'INFO',
-            # },
-            # 'pytui.runner.stderr': {
-            #     'level': 'INFO',
-            # },
+            'pytui.runner.pipe': {
+                'level': 'INFO',
+            },
+            'pytui.runner.stdout': {
+                'level': 'INFO',
+            },
+            'pytui.runner.stderr': {
+                'level': 'INFO',
+            },
             # 'pytui': {
             #     'handlers': ['logfile'],
             #     'level': 'DEBUG',
