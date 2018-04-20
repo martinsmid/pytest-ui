@@ -52,7 +52,6 @@ class Runner(object):
         self.pipe_semaphore = pipe_semaphore
 
     def pipe_send(self, method, **kwargs):
-        logger.debug('kwargs %s', str({k: type(v) for k, v in kwargs.items()}))
         data = bytes(b'%s\n' % json.dumps({
                 'method': method,
                 'params': kwargs
