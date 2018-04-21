@@ -458,31 +458,6 @@ class TestRunnerUI(object):
         # self.w_main._invalidate()
         # self.main_loop.draw_screen()
 
-    def _run_test(self, test_id):
-        self.test_data[test_id]['widget']._invalidate()
-
-        # self.w_test_listbox._invalidate()
-        # self.w_main._invalidate()
-        self.main_loop.draw_screen()
-
-        _orig_stdout = sys.stdout
-        _orig_stderr = sys.stderr
-        sys.stdout = StringIO()
-        sys.stderr = StringIO()
-
-        # TODO use runner
-
-        sys.stdout.close()
-        sys.stderr.close()
-
-        sys.stdout = _orig_stdout
-        sys.stderr = _orig_stderr
-
-        self.test_data[test_id]['widget']._invalidate()
-        # self.w_test_listbox._invalidate()
-        # self.w_main._invalidate()
-        self.w_status_line.original_widget._invalidate()
-        self.main_loop.draw_screen()
 
     def update_test_result(self, test_data):
         display_result_state = test_data.get('result_state', '')
@@ -588,7 +563,6 @@ class TestRunnerUI(object):
 
 def main():
     path = sys.argv[1] if len(sys.argv) - 1 else '.'
-
     ui = TestRunnerUI(PytestRunner, path)
     ui.run()
 
