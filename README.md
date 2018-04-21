@@ -1,5 +1,5 @@
 # pytest-ui
-Text User Interface for running python tests.
+Text User Interface for running python tests. Still in _beta_ version
 
 # pip install
   - provides the cli command `pytui`

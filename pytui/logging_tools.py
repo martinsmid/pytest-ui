@@ -54,7 +54,7 @@ def configure(filename):
         'loggers': {
             'pytui': {
                 'handlers': ['logfile'],
-                'level': 1,
+                'level': 'DEBUG',
             },
             'pytui.runner.pipe': {
                 'level': 'INFO',
@@ -65,10 +65,6 @@ def configure(filename):
             'pytui.runner.stderr': {
                 'level': 'INFO',
             },
-            # 'pytui': {
-            #     'handlers': ['logfile'],
-            #     'level': 'DEBUG',
-            # },
         },
         'root': {
             'handlers': ['default'],
