@@ -1,22 +1,31 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import range
+from builtins import object
+
 import re
 import os
 import sys
 import json
+import unittest
+from collections import OrderedDict
+from io import StringIO
+
+
+from tblib import Traceback
 import pytest
-import logging
 from _pytest.runner import Skipped
 import traceback
-from collections import OrderedDict
-import unittest
-from StringIO import StringIO
 
-import logging_tools
-from logging_tools import get_logger, LogWriter
+from . import logging_tools
+from .logging_tools import get_logger, LogWriter
+from .plugin import PytestPlugin
 
-from plugin import PytestPlugin
 
 log_name = 'runner'
 logger = get_logger(log_name)
@@ -29,7 +38,7 @@ PIPE_LIMIT = 4096
 
 
 def get_chunks(string):
-    for offset in xrange(0, len(string), PIPE_LIMIT):
+    for offset in range(0, len(string), PIPE_LIMIT):
         yield string[offset:offset+PIPE_LIMIT]
 
 
@@ -38,15 +47,15 @@ class Runner(object):
         self.path = path
         self.tests = OrderedDict()
         logger.debug('%s Init', self.__class__.__name__)
-        self.write_pipe = os.fdopen(write_pipe, 'w', 0)
+        self.write_pipe = os.fdopen(write_pipe, 'wb', 0)
         self.pipe_size = pipe_size
         self.pipe_semaphore = pipe_semaphore
 
     def pipe_send(self, method, **kwargs):
-        data = '%s\n' % json.dumps({
+        data = bytes(b'%s\n' % json.dumps({
                 'method': method,
                 'params': kwargs
-        })
+        }).encode('utf-8'))
 
         data_size = len(data)
         pipe_logger.debug('pipe write, data size: %s, pipe size: %s',
@@ -117,13 +126,13 @@ class Runner(object):
 
         if wasxfail:
             result = 'xfail'
-            extracted_traceback = traceback.extract_tb(excinfo.tb)
+            extracted_traceback = Traceback(excinfo.tb).to_dict()
         elif excinfo.type is Skipped:
             result = 'skipped'
             extracted_traceback = None
         else:
             result = 'failed'
-            extracted_traceback = traceback.extract_tb(excinfo.tb)
+            extracted_traceback = Traceback(excinfo.tb).to_dict()
 
         self.pipe_send('set_exception_info',
             test_id=test_id,
@@ -170,7 +179,7 @@ class PytestRunner(Runner):
                           pipe_size, pipe_semaphore, filter_value):
         """ Class method as separate process entrypoint """
         logging_tools.configure('pytui-runner.log')
-        logger.info('Test run started (failed_only: %s, filtere: %s)', failed_only, filtered)
+        logger.info('Test run started (failed_only: %s, filtered: %s)', failed_only, filtered)
 
         sys.stdout = stdout_logger_writer
         # sys.stdout = sys.stderr = stdout_logger_writer

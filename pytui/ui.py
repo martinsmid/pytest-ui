@@ -1,23 +1,33 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
+
+import sys
 import json
 import urwid
-import thread
-from common import get_filter_regex
 import logging
 import traceback
 import multiprocessing
+import _thread
 from collections import OrderedDict, defaultdict
 
-import settings
-import logging_tools
-from logging_tools import get_logger, DEBUG_B
-from runner import PytestRunner
+from tblib import Traceback
+
+from . import settings
+from . import logging_tools
+from .logging_tools import get_logger, DEBUG_B
+from .common import get_filter_regex
+from .runner import PytestRunner
+
 
 logging_tools.configure('pytui-ui.log')
 logger = get_logger('ui')
-
+logger.info('Configured logging')
 
 class TestLine(urwid.Widget):
     _sizing = frozenset(['flow'])
@@ -40,10 +50,10 @@ class TestLine(urwid.Widget):
         main_attr = (self.test_data.get('runstate'), title_width)
         state_attr = (result_state_str, 10)
         return urwid.TextCanvas(
-            ['{} [{:10}]'.format(
+            [('{} [{:10}]'.format(
                 self.test_data['id'][:title_width].ljust(title_width),
                 result_state_str[:10]
-            )],
+            )).encode('utf-8')],
             maxcol=maxcol,
             attr=[[main_attr, (None, 2), state_attr, (None, 1)]]
         )
@@ -69,9 +79,10 @@ class StatusLine(urwid.Widget):
         (maxcol,) = size
         stats = self.stats_callback()
         return urwid.TextCanvas(
-            ['Total: {} Filtered: {} Failed: {}'.format(stats['total'],
-                                                        stats['filtered'],
-                                                        stats['failed'])],
+            ['Total: {} Filtered: {} Failed: {}'
+             .format(stats['total'], stats['filtered'], stats['failed'])
+             .encode('utf-8')
+            ],
             maxcol=maxcol)
 
 
@@ -146,11 +157,11 @@ class Store(object):
         return self.test_data[test_id]['position']
 
     def get_failed_test_count(self):
-        return len([test_id for test_id, test in self.current_test_list.iteritems()
+        return len([test_id for test_id, test in list(self.current_test_list.items())
                         if self.is_test_failed(test)])
 
     def _get_tests(self, failed_only=True, filtered=True, include_lf_exempt=True):
-        return OrderedDict([(test_id, test) for test_id, test in self.test_data.iteritems()
+        return OrderedDict([(test_id, test) for test_id, test in list(self.test_data.items())
                                   if (not failed_only
                                       or self.is_test_failed(test))
                                   and (not filtered
@@ -167,6 +178,8 @@ class Store(object):
             }
 
         if extracted_traceback:
+            py_traceback = Traceback.from_dict(extracted_traceback).as_traceback()
+            extracted_traceback = traceback.extract_tb(py_traceback)
             output += ''.join(
                 traceback.format_list(extracted_traceback) +
                 [exc_value]
@@ -209,7 +222,7 @@ class Store(object):
         self.filter_regex = get_filter_regex(filter_value)
 
     def invalidate_test_results(self, tests):
-        for test_id, test in tests.iteritems():
+        for test_id, test in list(tests.items()):
             self.clear_test_result(test_id)
 
     def clear_test_result(self, test_id):
@@ -235,7 +248,7 @@ class Store(object):
             equal to position in the list of filtered tests
         """
         tests = self._get_tests(self.show_failed_only, True)
-        keys = tests.keys()
+        keys = list(tests.keys())
         next_pos = position
 
         while True:
@@ -300,7 +313,7 @@ class TestRunnerUI(object):
         self.child_pipe = None
         self.pipe_size = multiprocessing.Value('i', 0)
         self.pipe_semaphore = multiprocessing.Event()
-        self.receive_buffer = ''
+        self.receive_buffer = b''
         self.runner_process = None
 
         self.init_main_screen()
@@ -325,7 +338,7 @@ class TestRunnerUI(object):
         )
 
     def init_test_listbox(self):
-        self.w_test_listbox = self.test_listbox(self.store.current_test_list.keys())
+        self.w_test_listbox = self.test_listbox(list(self.store.current_test_list.keys()))
         if self.w_main:
             self.w_status_line.original_widget._invalidate()
             self.w_main.original_widget.widget_list[4] = self.w_test_listbox
@@ -358,11 +371,11 @@ class TestRunnerUI(object):
         logger.log(DEBUG_B, 'new data on pipe, data size: %s, pipe_size: %s',
                    len(data), self.pipe_size.value)
         self.receive_buffer += data
-        for chunk in self.receive_buffer.split('\n'):
+        for chunk in self.receive_buffer.split(b'\n'):
             if not chunk:
                 continue
             try:
-                payload = json.loads(chunk)
+                payload = json.loads(chunk.decode('utf-8'))
                 assert 'method' in payload
                 assert 'params' in payload
             except Exception as e:
@@ -444,31 +457,6 @@ class TestRunnerUI(object):
         # self.w_main._invalidate()
         # self.main_loop.draw_screen()
 
-    def _run_test(self, test_id):
-        self.test_data[test_id]['widget']._invalidate()
-
-        # self.w_test_listbox._invalidate()
-        # self.w_main._invalidate()
-        self.main_loop.draw_screen()
-
-        _orig_stdout = sys.stdout
-        _orig_stderr = sys.stderr
-        sys.stdout = StringIO()
-        sys.stderr = StringIO()
-
-        # TODO use runner
-
-        sys.stdout.close()
-        sys.stderr.close()
-
-        sys.stdout = _orig_stdout
-        sys.stderr = _orig_stderr
-
-        self.test_data[test_id]['widget']._invalidate()
-        # self.w_test_listbox._invalidate()
-        # self.w_main._invalidate()
-        self.w_status_line.original_widget._invalidate()
-        self.main_loop.draw_screen()
 
     def update_test_result(self, test_data):
         display_result_state = test_data.get('result_state', '')
@@ -573,12 +561,7 @@ class TestRunnerUI(object):
 
 
 def main():
-    import sys
-    import logging_tools
     path = sys.argv[1] if len(sys.argv) - 1 else '.'
-
-    logger.info('Configured logging')
-
     ui = TestRunnerUI(PytestRunner, path)
     ui.run()
 
