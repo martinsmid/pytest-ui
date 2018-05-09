@@ -1,16 +1,19 @@
+from __future__ import unicode_literals
 import sys
-import mock
 import pytest
 import logging
 import tempfile
-import unittest
+from unittest import mock, TestCase
 
 from pytui.runner import PytestRunner
+
+
 logger = logging.getLogger(__name__)
 logging.basicConfig()
 logger.setLevel('DEBUG')
 
-class PytestRunnerTests(unittest.TestCase):
+
+class PytestRunnerTests(TestCase):
     def setUp(self):
         self.pipe_mock = tempfile.TemporaryFile()
         self.pipe_size_mock = mock.Mock()

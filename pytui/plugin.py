@@ -1,5 +1,11 @@
-import logging_tools
-from common import get_filter_regex
+from __future__ import absolute_import
+from __future__ import unicode_literals
+from builtins import str
+from builtins import filter
+from builtins import object
+
+from . import logging_tools
+from .common import get_filter_regex
 
 
 logger = logging_tools.get_logger('runner.plugin')
@@ -77,7 +83,7 @@ class PytestPlugin(object):
 
         # import pdb; pdb.set_trace()
         if self.filter_regex:
-            items[:] = filter(is_filtered, items)
+            items[:] = list(filter(is_filtered, items))
 
         logger.debug('collect filtered  %s', [i.nodeid for i in items])
 
