@@ -278,13 +278,10 @@ class Store(object):
         self.ui.init_test_listbox()
 
     def popup_error(self, exitcode, output):
-        popup_widget = ErrorPopupWindow(
-            'Pytest init/collect failed', 'Exitcode: {0:d}\n{1:s}'
-            .format(exitcode, output),
-            None
+        self.ui.show_startup_error(
+            'Pytest init/collect failed',
+            'Exitcode: {0:d}\n{1:s}'.format(exitcode, output),
         )
-        self.ui.popup(popup_widget)
-        popup_widget.set_focus(0)
 
 
 class TestRunnerUI(object):
@@ -507,6 +504,16 @@ class TestRunnerUI(object):
             self.popup_close)
         self.popup(result_window)
         result_window.set_focus(0)
+
+    def show_startup_error(self, title, content):
+        popup_widget = ErrorPopupWindow(
+            title,
+            content,
+            self.popup_close
+        )
+
+        self.popup(popup_widget)
+        popup_widget.set_focus(0)
 
     def popup_close(self):
         self.main_loop.widget = self._popup_original
