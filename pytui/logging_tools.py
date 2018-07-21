@@ -73,6 +73,7 @@ def configure(filename):
     }
 
     for module in settings.DEBUG_MODULES:
+        logging_dict['loggers'].setdefault(module, {})
         logging_dict['loggers'][module]['level'] = 'DEBUG'
         # logging_dict['loggers'][module]['handlers'] = ['logfile']
         # logging_dict['loggers'][module]['propagate'] = False
