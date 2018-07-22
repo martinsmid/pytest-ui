@@ -1,5 +1,4 @@
 *.pyc
-test_projects/
 env/
 env3/
 *.log

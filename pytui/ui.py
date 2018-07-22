@@ -130,13 +130,18 @@ class Store(object):
         self.filter_regex = None
         self.filter_value = None
         self._show_failed_only = False
+        self._show_collected = True
 
     @property
     def current_test_list(self):
-        if not self.filter_regex and not self._show_failed_only:
+        if not self.filter_regex and not self._show_failed_only and self._show_collected:
             return self.test_data
 
-        return self._get_tests(self._show_failed_only, bool(self.filter_regex))
+        return self._get_tests(
+            self._show_failed_only,
+            bool(self.filter_regex),
+            collected=self._show_collected
+        )
 
 
     def get_test_stats(self):
@@ -163,22 +168,37 @@ class Store(object):
         return len([test_id for test_id, test in list(self.current_test_list.items())
                         if self.is_test_failed(test)])
 
-    def _get_tests(self, failed_only=True, filtered=True, include_lf_exempt=True):
-        return OrderedDict([(test_id, test) for test_id, test in list(self.test_data.items())
-                                  if (not failed_only
-                                      or self.is_test_failed(test))
-                                  and (not filtered
-                                      or self.is_test_filtered(test_id))
-                                  and (not test.get('last_failed_exempt')
-                                      or include_lf_exempt)
-                          ])
+    def _get_tests(self, failed_only=True, filtered=True, include_lf_exempt=True, collected=True):
+        logger.info('_get_tests failed_only: %s filtered: %s include_lf_exempt %s collected %s',
+                     failed_only, filtered, include_lf_exempt, collected)
+        return OrderedDict([
+            (test_id, test)
+                for test_id, test in list(self.test_data.items())
+                if (not failed_only
+                  or self.is_test_failed(test))
+                and (not filtered
+                   or self.is_test_filtered(test_id))
+                and (not test.get('last_failed_exempt')
+                   or include_lf_exempt)
+                and (collected
+                   or not test.get('result_state', '') == '')
+        ])
 
     def set_test_result(self, test_id, result_state, output, when, outcome,
                         exc_type=None, exc_value=None, extracted_traceback=None, last_failed_exempt=None):
+        """
+            Sets test result in internal dictionary. Updates UI.
+
+            Args:
+                test_id: An unique string test identifier.
+        """
+        update_listbox = False
+
         if not test_id in self.test_data:
             self.test_data[test_id] = {
                 'id': test_id
             }
+            update_listbox = True
 
         if extracted_traceback:
             py_traceback = Traceback.from_dict(extracted_traceback).as_traceback()
@@ -201,7 +221,10 @@ class Store(object):
             and not test_data.get('result_state'):
             test_data['result_state'] = result_state
             test_data['output'] = output
-            self.ui.update_test_result(test_data)
+            if update_listbox:
+                self.ui.init_test_listbox()
+            else:
+                self.ui.update_test_result(test_data)
 
         if when == 'teardown':
             test_data['runstate'] = None
@@ -277,11 +300,17 @@ class Store(object):
         self._show_failed_only = value
         self.ui.init_test_listbox()
 
-    def popup_error(self, exitcode, output):
-        self.ui.show_startup_error(
-            'Pytest init/collect failed',
-            'Exitcode: {0:d}\n{1:s}'.format(exitcode, output),
-        )
+    @property
+    def show_collected(self):
+        return self._show_collected
+
+    @show_collected.setter
+    def show_collected(self, value):
+        self._show_collected = value
+        self.ui.init_test_listbox()
+
+    def set_init_fail(self, exitcode):
+        self.show_collected = False
 
 
 class TestRunnerUI(object):
@@ -409,8 +438,8 @@ class TestRunnerUI(object):
                     self.store.set_exception_info(**payload['params'])
                 elif payload['method'] == 'set_test_state':
                     self.store.set_test_state(**payload['params'])
-                elif payload['method'] == 'popup_error':
-                    self.store.popup_error(**payload['params'])
+                elif payload['method'] == 'set_init_fail':
+                    self.store.set_init_fail(**payload['params'])
             except:
                 logger.exception('Error in handler "%s"', payload['method'])
 
@@ -449,6 +478,7 @@ class TestRunnerUI(object):
 
         if filtered is None:
             filtered = self.store.filter_value
+        self.store.show_collected = True
 
         logger.info('Running tests (failed_only: %r, filtered: %r)', failed_only, filtered)
         self._first_failed_focused = False
@@ -472,8 +502,11 @@ class TestRunnerUI(object):
     def update_test_result(self, test_data):
         display_result_state = test_data.get('result_state', '')
         if display_result_state in ['failed', 'error'] and not self._first_failed_focused:
-            self.w_test_listbox.set_focus(test_data.get('position', 0))
-            self._first_failed_focused = True
+            try:
+                self.w_test_listbox.set_focus(test_data.get('position', 0))
+                self._first_failed_focused = True
+            except IndexError:
+                pass
 
         if test_data.get('widget'):
             test_data['widget']._invalidate()
@@ -551,8 +584,11 @@ class TestRunnerUI(object):
     def set_listbox_focus(self, test_data):
         # set listbox focus if not already focused on first failed
         if not self._first_failed_focused:
-            self.w_test_listbox.set_focus(test_data['position'], 'above')
-            self.w_test_listbox._invalidate()
+            try:
+                self.w_test_listbox.set_focus(test_data['position'], 'above')
+                self.w_test_listbox._invalidate()
+            except IndexError:
+                pass
 
     def quit(self):
         self.pipe_semaphore.set()

@@ -123,7 +123,6 @@ class Runner(object):
                 if xfail_strict:
                     logger.debug('LF EXEMPT %s', test_id)
             return
-
         if wasxfail:
             result = 'xfail'
             extracted_traceback = Traceback(excinfo.tb).to_dict()
@@ -144,11 +143,10 @@ class Runner(object):
             when=when
         )
 
-    def set_init_error(self, exitcode, output):
+    def set_init_error(self, exitcode):
         self.pipe_send(
-            'popup_error',
-            exitcode=exitcode,
-            output=output
+            'set_init_fail',
+            exitcode=exitcode
         )
 
     def get_test_id(self, test):
@@ -181,10 +179,8 @@ class PytestRunner(Runner):
         runner = cls(path, write_pipe=write_pipe, pipe_size=pipe_size, pipe_semaphore=pipe_semaphore)
         exitcode = runner.init_tests()
         if exitcode != 0:
-            output = 'sys.stdout + sys.stderr'
-            logger.error('pytest failed with exitcode %d', exitcode)
-            logger.debug('  output %s', output)
-            runner.set_init_error(exitcode, output)
+            logger.warning('pytest failed with exitcode %d', exitcode)
+            runner.set_init_error(exitcode)
 
         logger.info('Init finished')
 
