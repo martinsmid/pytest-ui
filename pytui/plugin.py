@@ -87,3 +87,7 @@ class PytestPlugin(object):
 
         logger.debug('collect filtered  %s', [i.nodeid for i in items])
 
+    def pytest_exception_interact(self, node, call, report):
+        logger.debug('pytest_exception_interact %s %s %s', node.nodeid, call, report)
+        self.runner.set_exception_info(node.nodeid, call.excinfo, call.when, False, None)
+
