@@ -1,3 +1,9 @@
+version 0.3.1b0
+---------------
+
+- Add proper handling for collect-time errors (like module level import errors or syntax errors)
+
+
 version 0.3b
 ------------
 
