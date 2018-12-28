@@ -19,14 +19,10 @@ setup(
         ]
     },
     install_requires=[
-        'attrs==17.4.0',
-        'future==0.16.0',
-        'pluggy==0.6.0',
-        'py==1.5.2',
-        'pytest==3.4.1',
-        'six==1.11.0',
-        'tblib==1.3.2',
-        'urwid==2.0.1',
+        'future',
+        'pytest',
+        'tblib',
+        'urwid',
     ],
     classifiers=[
         'Development Status :: 4 - Beta',
