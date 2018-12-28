@@ -311,6 +311,10 @@ class Store(object):
 
     def set_init_fail(self, exitcode):
         self.show_collected = False
+        self.ui.show_startup_error(
+            'Pytest init/collect failed',
+            'Exitcode: {0:d}\n{1:s}'.format(exitcode, output),
+        )
 
 
 class TestRunnerUI(object):
