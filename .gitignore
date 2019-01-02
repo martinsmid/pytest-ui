@@ -5,3 +5,6 @@ env3/
 draft/*
 dist/
 pytest_ui.egg-info/
+.tox
+.eggs
+test_projects
