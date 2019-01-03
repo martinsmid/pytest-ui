@@ -1,4 +1,5 @@
 from __future__ import unicode_literals
+
 import sys
 import pytest
 import logging
@@ -10,7 +11,7 @@ except ImportError:
 
 from unittest import TestCase
 
-from pytui.runner import PytestRunner
+from pytui.runner import PytestRunner, Runner
 
 
 logging.basicConfig()
@@ -39,18 +40,17 @@ class PytestRunnerTests(TestCase):
             runner.run_tests(False, 'xfail')
             logger.debug(pipe_send_mock.call_args_list)
 
-    @mock.patch.object(PytestRunner, 'pipe_send')
     @mock.patch.object(PytestRunner, 'init_tests', return_value=1)
+    @mock.patch.object(Runner, 'pipe_send')
     def test_pytest_exitcode(self, pipe_send_mock, init_tests_mock):
-        # import pudb.b
+        """
+        Test whether set_init_fail(exitcode=1) is sent to ui from runner throught the pipe.
+        """
         PytestRunner.process_init_tests(
             'test_projects/test_module_a/',
             self.pipe_mock.fileno(),
             self.pipe_size_mock,
             self.pipe_semaphore_mock
         )
-        print('here')
-        logger.debug('here2')
-        print(type(pipe_send_mock.call_args_list))
-        print(pipe_send_mock.call_args_list)
-        raise Exception('x')
+
+        assert pipe_send_mock.call_args_list == [mock.call('set_init_fail', exitcode=1)]
