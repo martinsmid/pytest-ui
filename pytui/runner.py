@@ -25,7 +25,7 @@ import traceback
 from . import logging_tools
 from .logging_tools import get_logger, LogWriter
 from .plugin import PytestPlugin
-
+from .common import PytestExitcodes
 
 log_name = 'runner'
 logger = get_logger(log_name)
@@ -143,9 +143,9 @@ class Runner(object):
             when=when
         )
 
-    def set_init_error(self, exitcode):
+    def set_pytest_error(self, exitcode):
         self.pipe_send(
-            'set_init_fail',
+            'set_pytest_error',
             exitcode=exitcode
         )
 
@@ -178,9 +178,9 @@ class PytestRunner(Runner):
 
         runner = cls(path, write_pipe=write_pipe, pipe_size=pipe_size, pipe_semaphore=pipe_semaphore)
         exitcode = runner.init_tests()
-        if exitcode != 0:
+        if exitcode != PytestExitcodes.ALL_COLLECTED:
             logger.warning('pytest failed with exitcode %d', exitcode)
-            runner.set_init_error(exitcode)
+            runner.set_pytest_error(exitcode)
 
         logger.info('Init finished')
 
@@ -197,7 +197,12 @@ class PytestRunner(Runner):
 
         runner = cls(path, write_pipe=write_pipe, pipe_size=pipe_size,
                      pipe_semaphore=pipe_semaphore)
-        runner.run_tests(failed_only, filter_value)
+        exitcode = runner.run_tests(failed_only, filter_value)
+        if exitcode in (PytestExitcodes.INTERNAL_ERROR,
+                        PytestExitcodes.USAGE_ERROR,
+                        PytestExitcodes.NO_TESTS_COLLECTED):
+            logger.warning('pytest failed with exitcode %d', exitcode)
+            runner.set_pytest_error(exitcode)
 
         logger.info('Test run finished')
 

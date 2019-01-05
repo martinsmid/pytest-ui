@@ -44,7 +44,7 @@ class PytestRunnerTests(TestCase):
     @mock.patch.object(Runner, 'pipe_send')
     def test_pytest_exitcode(self, pipe_send_mock, init_tests_mock):
         """
-        Test whether set_init_fail(exitcode=1) is sent to ui from runner throught the pipe.
+        Test whether set_pytest_error(exitcode=1) is sent to ui from runner throught the pipe.
         """
         PytestRunner.process_init_tests(
             'test_projects/test_module_a/',
@@ -53,4 +53,4 @@ class PytestRunnerTests(TestCase):
             self.pipe_semaphore_mock
         )
 
-        assert pipe_send_mock.call_args_list == [mock.call('set_init_fail', exitcode=1)]
+        assert pipe_send_mock.call_args_list == [mock.call('set_pytest_error', exitcode=1)]

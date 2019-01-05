@@ -21,7 +21,7 @@ from tblib import Traceback
 from . import settings
 from . import logging_tools
 from .logging_tools import get_logger, DEBUG_B
-from .common import get_filter_regex
+from .common import get_filter_regex, PytestExitcodes
 from .runner import PytestRunner
 
 
@@ -309,11 +309,12 @@ class Store(object):
         self._show_collected = value
         self.ui.init_test_listbox()
 
-    def set_init_fail(self, exitcode):
+    def set_pytest_error(self, exitcode):
         self.show_collected = False
+        output = PytestExitcodes.text[exitcode]
         self.ui.show_startup_error(
             'Pytest init/collect failed',
-            'Exitcode: {0:d}\n{1:s}'.format(exitcode, output),
+            '{1:s} (pytest exitcode {0:d})'.format(exitcode, output),
         )
 
 
@@ -442,8 +443,8 @@ class TestRunnerUI(object):
                     self.store.set_exception_info(**payload['params'])
                 elif payload['method'] == 'set_test_state':
                     self.store.set_test_state(**payload['params'])
-                elif payload['method'] == 'set_init_fail':
-                    self.store.set_init_fail(**payload['params'])
+                elif payload['method'] == 'set_pytest_error':
+                    self.store.set_pytest_error(**payload['params'])
             except:
                 logger.exception('Error in handler "%s"', payload['method'])
 
