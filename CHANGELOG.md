@@ -1,3 +1,10 @@
+version 0.3.2b0
+---------------
+
+- Improve error reporting. Show an popup dialog when collect/testrun errors occur (based on pytest exit code)
+- Unfreeze the dependencies in setup.py
+
+
 version 0.3.1b0
 ---------------
 
