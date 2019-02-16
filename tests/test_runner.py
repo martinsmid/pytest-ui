@@ -40,7 +40,7 @@ class PytestRunnerTests(TestCase):
             runner.run_tests(False, 'xfail')
             logger.debug(pipe_send_mock.call_args_list)
 
-    @mock.patch.object(PytestRunner, 'init_tests', return_value=1)
+    @mock.patch.object(PytestRunner, 'init_tests', return_value=(1, None))
     @mock.patch.object(Runner, 'pipe_send')
     def test_pytest_exitcode(self, pipe_send_mock, init_tests_mock):
         """
@@ -53,4 +53,4 @@ class PytestRunnerTests(TestCase):
             self.pipe_semaphore_mock
         )
 
-        assert pipe_send_mock.call_args_list == [mock.call('set_pytest_error', exitcode=1)]
+        assert pipe_send_mock.call_args_list == [mock.call('set_pytest_error', exitcode=1, description=None)]

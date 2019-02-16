@@ -21,6 +21,9 @@ class PytestExitcodes(object):
     USAGE_ERROR = 4
     NO_TESTS_COLLECTED = 5
 
+    # Own exitcodes
+    CRASHED = 100
+
     text = {
         ALL_COLLECTED: "All tests were collected and passed successfully",
         ALL_COLLECTED_SOME_FAILED: "Tests were collected and run but some of the tests failed",
@@ -28,4 +31,5 @@ class PytestExitcodes(object):
         INTERNAL_ERROR: "Internal error happened while executing tests",
         USAGE_ERROR: "pytest command line usage error",
         NO_TESTS_COLLECTED: "No tests were collected",
+        CRASHED: "Pytest crashed",
     }

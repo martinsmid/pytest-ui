@@ -309,9 +309,16 @@ class Store(object):
         self._show_collected = value
         self.ui.init_test_listbox()
 
-    def set_pytest_error(self, exitcode):
+    def set_pytest_error(self, exitcode, description=None):
         self.show_collected = False
         output = PytestExitcodes.text[exitcode]
+        if description is not None:
+            output += (
+                '\n' +
+                '---------- description ----------' +
+                '\n' +
+                description
+            )
         self.ui.show_startup_error(
             'Pytest init/collect failed',
             '{1:s} (pytest exitcode {0:d})'.format(exitcode, output),

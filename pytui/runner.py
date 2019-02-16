@@ -13,6 +13,7 @@ import os
 import sys
 import json
 import unittest
+import traceback
 from collections import OrderedDict
 from io import StringIO
 
@@ -143,10 +144,11 @@ class Runner(object):
             when=when
         )
 
-    def set_pytest_error(self, exitcode):
+    def set_pytest_error(self, exitcode, description=None):
         self.pipe_send(
             'set_pytest_error',
-            exitcode=exitcode
+            exitcode=exitcode,
+            description=description
         )
 
     def get_test_id(self, test):
@@ -162,10 +164,13 @@ class PytestRunner(Runner):
     def init_tests(self):
         logger.debug('Running pytest --collect-only')
 
-        exitcode = pytest.main(['-p', 'no:terminal', '--collect-only', self.path],
-            plugins=[PytestPlugin(runner=self)])
+        try:
+            exitcode = pytest.main(['-p', 'no:terminal', '--collect-only', self.path],
+                                   plugins=[PytestPlugin(runner=self)])
+        except Exception as e:
+            return PytestExitcodes.CRASHED, traceback.format_exc(e)
 
-        return exitcode
+        return exitcode, None
 
     @classmethod
     def process_init_tests(cls, path, write_pipe, pipe_size, pipe_semaphore):
@@ -177,10 +182,12 @@ class PytestRunner(Runner):
         sys.stderr = stderr_logger_writer
 
         runner = cls(path, write_pipe=write_pipe, pipe_size=pipe_size, pipe_semaphore=pipe_semaphore)
-        exitcode = runner.init_tests()
+        exitcode, description = runner.init_tests()
+        logger.warning('here, exitcode %d', exitcode)
+
         if exitcode != PytestExitcodes.ALL_COLLECTED:
             logger.warning('pytest failed with exitcode %d', exitcode)
-            runner.set_pytest_error(exitcode)
+            runner.set_pytest_error(exitcode, description)
 
         logger.info('Init finished')
 
