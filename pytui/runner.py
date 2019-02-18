@@ -204,12 +204,13 @@ class PytestRunner(Runner):
 
         runner = cls(path, write_pipe=write_pipe, pipe_size=pipe_size,
                      pipe_semaphore=pipe_semaphore)
-        exitcode = runner.run_tests(failed_only, filter_value)
+        exitcode, description = runner.run_tests(failed_only, filter_value)
         if exitcode in (PytestExitcodes.INTERNAL_ERROR,
                         PytestExitcodes.USAGE_ERROR,
-                        PytestExitcodes.NO_TESTS_COLLECTED):
+                        PytestExitcodes.NO_TESTS_COLLECTED,
+                        PytestExitcodes.CRASHED):
             logger.warning('pytest failed with exitcode %d', exitcode)
-            runner.set_pytest_error(exitcode)
+            runner.set_pytest_error(exitcode, description)
 
         logger.info('Test run finished')
 
@@ -222,11 +223,15 @@ class PytestRunner(Runner):
         if failed_only:
             args.append('--lf')
 
-        exitcode = pytest.main(
-            args,
-            plugins=[PytestPlugin(runner=self, filter_value=filter_value)]
-        )
-        return exitcode
+        try:
+            exitcode = pytest.main(
+                args,
+                plugins=[PytestPlugin(runner=self, filter_value=filter_value)]
+            )
+        except Exception as e:
+            return PytestExitcodes.CRASHED, traceback.format_exc(e)
+
+        return exitcode, None
 
     def result_state(self, report):
         if not report:
