@@ -1,3 +1,9 @@
+version 0.3.3b0
+---------------
+
+- Catch pytest crashes and report them in a popup.
+
+
 version 0.3.2b0
 ---------------
 
