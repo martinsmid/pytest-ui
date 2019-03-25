@@ -10,6 +10,7 @@ from builtins import object
 import sys
 import json
 import urwid
+import click
 import logging
 import traceback
 import multiprocessing
@@ -25,9 +26,7 @@ from .common import get_filter_regex, PytestExitcodes
 from .runner import PytestRunner
 
 
-logging_tools.configure('pytui-ui.log')
 logger = get_logger('ui')
-logger.info('Configured logging')
 
 class TestLine(urwid.Widget):
     _sizing = frozenset(['flow'])
@@ -311,7 +310,7 @@ class Store(object):
 
     def set_pytest_error(self, exitcode, description=None):
         self.show_collected = False
-        output = PytestExitcodes.text[exitcode]
+        output = PytestExitcodes.text.get(exitcode, 'Unknown error')
         if description is not None:
             output += (
                 '\n' +
@@ -347,12 +346,13 @@ class TestRunnerUI(object):
         ('teardown',    'white',      'dark blue',             '', '',     ''),
     ]
 
-    def __init__(self, runner_class, path):
+    def __init__(self, runner_class, path, debug):
         logger.info('Runner UI init')
         urwid.set_encoding("UTF-8")
 
         self.runner_class = runner_class
         self.path = path
+        self.debug = debug
         self.store = Store(self)
 
         self.main_loop = None
@@ -402,7 +402,7 @@ class TestRunnerUI(object):
         self.runner_process = multiprocessing.Process(
             target=self.runner_class.process_init_tests,
             name='pytui-runner',
-            args=(self.path, self.child_pipe, self.pipe_size, self.pipe_semaphore)
+            args=(self.path, self.child_pipe, self.pipe_size, self.pipe_semaphore, self.debug)
         )
         self.runner_process.start()
 
@@ -502,7 +502,7 @@ class TestRunnerUI(object):
             target=self.runner_class.process_run_tests,
             name='pytui-runner',
             args=(self.path, failed_only, filtered, self.child_pipe, self.pipe_size,
-                  self.pipe_semaphore, self.store.filter_value)
+                  self.pipe_semaphore, self.store.filter_value, self.debug)
         )
         self.runner_process.start()
 
@@ -629,11 +629,16 @@ class TestRunnerUI(object):
             self.store.show_failed_only = not self.store.show_failed_only
 
 
-def main():
-    path = sys.argv[1] if len(sys.argv) - 1 else '.'
-    ui = TestRunnerUI(PytestRunner, path)
+@click.command()
+@click.argument('path')
+@click.option('--debug/--no-debug', default=False)
+def main(path, debug):
+    logging_tools.configure('pytui-ui.log', debug)
+    logger = get_logger('ui')
+    logger.info('Configured logging')
+
+    ui = TestRunnerUI(PytestRunner, path, debug)
     ui.run()
 
 if __name__ == '__main__':
     main()
-

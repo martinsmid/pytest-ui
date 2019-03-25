@@ -173,9 +173,9 @@ class PytestRunner(Runner):
         return exitcode, None
 
     @classmethod
-    def process_init_tests(cls, path, write_pipe, pipe_size, pipe_semaphore):
+    def process_init_tests(cls, path, write_pipe, pipe_size, pipe_semaphore, debug):
         """ Class method as separate process entrypoint """
-        logging_tools.configure('pytui-runner.log')
+        logging_tools.configure('pytui-runner.log', debug)
         logger.info('Init started (path: %s)', path)
 
         sys.stdout = stdout_logger_writer
@@ -183,7 +183,6 @@ class PytestRunner(Runner):
 
         runner = cls(path, write_pipe=write_pipe, pipe_size=pipe_size, pipe_semaphore=pipe_semaphore)
         exitcode, description = runner.init_tests()
-        logger.warning('here, exitcode %d', exitcode)
 
         if exitcode != PytestExitcodes.ALL_COLLECTED:
             logger.warning('pytest failed with exitcode %d', exitcode)
@@ -193,13 +192,12 @@ class PytestRunner(Runner):
 
     @classmethod
     def process_run_tests(cls, path, failed_only, filtered, write_pipe,
-                          pipe_size, pipe_semaphore, filter_value):
+                          pipe_size, pipe_semaphore, filter_value, debug):
         """ Class method as separate process entrypoint """
-        logging_tools.configure('pytui-runner.log')
+        logging_tools.configure('pytui-runner.log', debug)
         logger.info('Test run started (failed_only: %s, filtered: %s)', failed_only, filtered)
 
         sys.stdout = stdout_logger_writer
-        # sys.stdout = sys.stderr = stdout_logger_writer
         sys.stderr = stderr_logger_writer
 
         runner = cls(path, write_pipe=write_pipe, pipe_size=pipe_size,
@@ -245,4 +243,3 @@ class PytestRunner(Runner):
 
         logger.warning('Unknown report outcome %s', report.outcome)
         return 'N/A'
-

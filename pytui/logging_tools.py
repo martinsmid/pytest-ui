@@ -31,7 +31,7 @@ class LogWriter(object):
         pass
 
 
-def configure(filename):
+def configure(filename, debug):
     logging_dict = {
         'version': 1,
         'disable_existing_loggers': True,
@@ -54,7 +54,7 @@ def configure(filename):
         'loggers': {
             'pytui': {
                 'handlers': ['logfile'],
-                'level': 'DEBUG',
+                'level': 'DEBUG' if debug else 'INFO',
             },
             'pytui.runner.pipe': {
                 'level': 'INFO',

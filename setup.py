@@ -23,6 +23,7 @@ setup(
         'pytest',
         'tblib',
         'urwid',
+        'click',
     ],
     classifiers=[
         'Development Status :: 4 - Beta',
