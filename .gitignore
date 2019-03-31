@@ -8,3 +8,4 @@ pytest_ui.egg-info/
 .tox
 .eggs
 test_projects
+build/
