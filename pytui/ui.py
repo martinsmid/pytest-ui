@@ -7,6 +7,8 @@ from future import standard_library
 standard_library.install_aliases()
 from builtins import object
 
+import warnings
+warnings.filterwarnings("ignore")
 import sys
 import json
 import urwid
