@@ -186,7 +186,7 @@ class Store(object):
     def set_test_result(self, test_id, result_state, output, when, outcome,
                         exc_type=None, exc_value=None, extracted_traceback=None, last_failed_exempt=None):
         """
-            Sets test result in internal dictionary. Updates UI.
+            Set test result in internal dictionary. Updates UI.
 
             Args:
                 test_id: An unique string test identifier.
@@ -452,6 +452,9 @@ class TestRunnerUI(object):
                     self.store.set_test_state(**payload['params'])
                 elif payload['method'] == 'set_pytest_error':
                     self.store.set_pytest_error(**payload['params'])
+                elif payload['method'] in ['init_finished', 'run_finished']:
+                    self.main_loop.screen.clear()
+
             except:
                 logger.exception('Error in handler "%s"', payload['method'])
 

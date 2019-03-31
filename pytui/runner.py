@@ -189,6 +189,7 @@ class PytestRunner(Runner):
             runner.set_pytest_error(exitcode, description)
 
         logger.info('Init finished')
+        runner.pipe_send('init_finished')
 
     @classmethod
     def process_run_tests(cls, path, failed_only, filtered, write_pipe,
@@ -211,6 +212,7 @@ class PytestRunner(Runner):
             runner.set_pytest_error(exitcode, description)
 
         logger.info('Test run finished')
+        runner.pipe_send('run_finished')
 
     def item_collected(self, item):
         # self.tests[self.get_test_id(item)] = item
