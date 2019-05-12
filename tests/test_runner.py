@@ -50,7 +50,11 @@ class PytestRunnerTests(TestCase):
             'test_projects/test_module_a/',
             self.pipe_mock.fileno(),
             self.pipe_size_mock,
-            self.pipe_semaphore_mock
+            self.pipe_semaphore_mock,
+            debug=True
         )
 
-        assert pipe_send_mock.call_args_list == [mock.call('set_pytest_error', exitcode=1, description=None)]
+        assert pipe_send_mock.call_args_list == [
+            mock.call('set_pytest_error', exitcode=1, description=None),
+            mock.call('init_finished')
+        ]
