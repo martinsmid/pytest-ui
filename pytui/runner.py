@@ -203,7 +203,13 @@ class PytestRunner(Runner):
 
         runner = cls(path, write_pipe=write_pipe, pipe_size=pipe_size,
                      pipe_semaphore=pipe_semaphore)
-        exitcode, description = runner.run_tests(failed_only, filter_value)
+        try:
+            exitcode, description = runner.run_tests(failed_only, filter_value)
+        except Exception as exc:
+            exitcode = PytestExitcodes.CRASHED
+            description = str(exc)
+            logger.exception('Failed to run tests')
+
         if exitcode in (PytestExitcodes.INTERNAL_ERROR,
                         PytestExitcodes.USAGE_ERROR,
                         PytestExitcodes.NO_TESTS_COLLECTED,
