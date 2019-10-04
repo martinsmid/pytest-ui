@@ -1,8 +1,9 @@
 from __future__ import unicode_literals
 
-import sys
-import mock
-import pytest
+try:
+    from unittest import mock
+except ImportError:
+    import mock
 import logging
 import tempfile
 

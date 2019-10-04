@@ -1,3 +1,4 @@
+from __future__ import print_function
 import unittest
 
 import logging
@@ -7,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 class TestOutputCapturing(unittest.TestCase):
     def test_feat_1_case_1(self):
-        print 'hello'
+        print('hello')
         logger.debug('hello at the debug level')
 
     def test_feat_1_case_2(self):
