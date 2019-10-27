@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.com/martinsmid/pytest-ui.svg?branch=master)](https://travis-ci.com/martinsmid/pytest-ui)
+
 # pytest-ui
 Text User Interface for running python tests. Still in _beta_ version
 
