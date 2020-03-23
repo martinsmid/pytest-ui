@@ -1,9 +1,12 @@
+from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
 #!/usr/bin/env python
 # encoding: utf-8
 
 import sys
 import unittest
-from StringIO import StringIO
+from io import StringIO
 
 
 if __name__ == '__main__':
@@ -25,7 +28,7 @@ if __name__ == '__main__':
 	sys.stdout = _orig_stdout
 	sys.stderr = _orig_stderr
 
-	print 'And here is the output'
-	print test_output
-	print 'And here is the error output'
-	print test_output_err
+	print('And here is the output')
+	print(test_output)
+	print('And here is the error output')
+	print(test_output_err)

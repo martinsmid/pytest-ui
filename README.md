@@ -19,6 +19,12 @@ Text User Interface for running python tests. Still in _beta_ version
   - <kbd>alt</kbd> + <kbd>up</kbd>/<kbd>down</kbd> - navigate between failed tests (skipping passed)
   - <kbd>q</kbd> - close window, quit (in main window)
 
+## filter input
+By default, filter input is in fuzzy mode. This could be avoided by using dash signs,
+where exact match mode is used between a pair of them. For example
+
+abc#match#def will match fuzzy "abc", then exactly "match" and then again fuzzy "def"
+
 # main goals
 The goal of this project is to ease the testing process by
   - [x] selecting tests to run using fuzzy filter

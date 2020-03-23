@@ -1,15 +1,30 @@
 from __future__ import unicode_literals
+from builtins import object
 
 import re
 
+def get_fuzzy_regex(fuzzy_str):
+    return '.*?'.join(list(iter(
+        fuzzy_str.replace('.', r'\.').replace(r'\\', '\\\\')
+    )))
+
+
+def get_filter_regex_str(filter_value):
+    filter_exact = ''
+
+    pieces = filter_value.split('#')
+
+    return ''.join(
+        (   get_fuzzy_regex(value) if i % 2 == 0 else value
+            for i, value in enumerate(pieces)
+        )
+    )
 
 def get_filter_regex(filter_value):
     if not filter_value:
         return None
 
-    regexp_str = '.*?'.join(list(iter(
-        filter_value.replace('.', '\.').replace(r'\\', '\\\\')
-    )))
+    regexp_str = get_filter_regex_str(filter_value)
     return re.compile(regexp_str, re.UNICODE + re.IGNORECASE)
 
 
