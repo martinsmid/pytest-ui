@@ -4,6 +4,7 @@ from builtins import object
 
 import logging
 import logging.config
+from io import IOBase
 
 from . import settings
 
@@ -20,15 +21,14 @@ def get_logger(name, *args):
     return logging.getLogger('.'.join(['pytui', name] + list(args)))
 
 
-class LogWriter(object):
+class LogWriter(IOBase):
     def __init__(self, logger):
         self.logger = logger
+        self._data = []
 
     def write(self, message):
-        self.logger.debug('STDOUT: (%s)\n', message.strip('\n'))
-
-    def flush(self):
-        pass
+        # self.logger.debug('STDOUT: (%s)\n', message.strip('\n'))
+        self._data.append(message)
 
 
 def configure(filename, debug):

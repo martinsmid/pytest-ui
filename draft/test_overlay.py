@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+from __future__ import print_function
 import urwid
+import sys
 
 class TestResultWindow(urwid.WidgetWrap):
     _sizing = frozenset(['box'])
@@ -27,7 +29,7 @@ class TestResultWindow2(urwid.LineBox):
         super(TestResultWindow2, self).__init__(urwid.Filler(urwid.Text(text)))
 
     def keypress(self, size, key):
-        print 'here'
+        print('here')
         raise urwid.ExitMainLoop()
         if key == 'esc':
             self.escape_method()
@@ -50,15 +52,13 @@ w_main = urwid.Overlay(
 
 def handle_input(key):
     if key in ('q', 'Q'):
-        print 'exiting on q'
+        print('exiting on q')
         raise urwid.ExitMainLoop()
     elif key in ('1'):
         main_loop.widget = urwid.LineBox(urwid.Filler(urwid.Text('The second top window', align='right')))
-        
 
-if __name__ != '__main__':
-    sys.exit(1)
 
-main_loop = urwid.MainLoop(w_main, palette=[('reversed', 'standout', '')],
-               unhandled_input=handle_input)
-main_loop.run()
+if __name__ == '__main__':
+    main_loop = urwid.MainLoop(w_main, palette=[('reversed', 'standout', '')],
+                   unhandled_input=handle_input)
+    main_loop.run()

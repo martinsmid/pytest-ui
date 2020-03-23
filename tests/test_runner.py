@@ -1,4 +1,5 @@
 from __future__ import unicode_literals
+from __future__ import absolute_import
 
 try:
     from unittest import mock
@@ -32,10 +33,13 @@ class PytestRunnerTests(TestCase):
         )
         with mock.patch.object(PytestRunner, 'pipe_send') as pipe_send_mock:
             logger.debug('------ runner init ------')
-            runner.init_tests()
+            exitcode, _description = runner.init_tests()
+            assert exitcode == 0
             # logger.debug(pipe_send_mock.call_args_list)
+
             logger.debug('------ runner run_tests ------')
-            runner.run_tests(False, 'xfail')
+            exitcode, _description = runner.run_tests(False, 'xfail')
+            assert exitcode == 1
             logger.debug(pipe_send_mock.call_args_list)
 
     @mock.patch.object(PytestRunner, 'init_tests', return_value=(1, None))

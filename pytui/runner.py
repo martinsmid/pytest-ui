@@ -3,6 +3,8 @@
 
 from __future__ import absolute_import
 from __future__ import unicode_literals
+from builtins import bytes
+from builtins import str
 from future import standard_library
 standard_library.install_aliases()
 from builtins import range
@@ -12,7 +14,6 @@ import re
 import os
 import sys
 import json
-import unittest
 import traceback
 from collections import OrderedDict
 from io import StringIO
@@ -21,7 +22,6 @@ from io import StringIO
 from tblib import Traceback
 import pytest
 from _pytest.runner import Skipped
-import traceback
 
 from . import logging_tools
 from .logging_tools import get_logger, LogWriter
@@ -40,7 +40,7 @@ PIPE_LIMIT = 4096
 
 def get_chunks(string):
     for offset in range(0, len(string), PIPE_LIMIT):
-        yield string[offset:offset+PIPE_LIMIT]
+        yield string[offset:offset + PIPE_LIMIT]
 
 
 class Runner(object):
@@ -54,8 +54,8 @@ class Runner(object):
 
     def pipe_send(self, method, **kwargs):
         data = bytes(b'%s\n' % json.dumps({
-                'method': method,
-                'params': kwargs
+            'method': method,
+            'params': kwargs
         }).encode('utf-8'))
 
         data_size = len(data)
@@ -94,7 +94,8 @@ class Runner(object):
             getattr(report, 'capstdout', '') + \
             getattr(report, 'capstderr', '')
 
-        self.pipe_send('set_test_result',
+        self.pipe_send(
+            'set_test_result',
             test_id=test_id,
             output=output,
             result_state=self.result_state(report),
@@ -103,7 +104,8 @@ class Runner(object):
         )
 
     def set_test_state(self, test_id, state):
-        self.pipe_send('set_test_state',
+        self.pipe_send(
+            'set_test_state',
             test_id=test_id,
             state=state
         )
@@ -113,7 +115,8 @@ class Runner(object):
             logger.debug('exc info repr %s', excinfo._getreprcrash())
         elif wasxfail:
             if when == 'call':
-                self.pipe_send('set_test_result',
+                self.pipe_send(
+                    'set_test_result',
                     test_id=test_id,
                     output='',
                     result_state='failed' if xfail_strict else 'xpass',
@@ -159,13 +162,19 @@ class PytestRunner(Runner):
     _test_fail_states = ['failed', 'error', None, '']
 
     def get_test_id(self, test):
-        return test.nodeid #.replace('/', '.')
+        return test.nodeid  #.replace('/', '.')
 
     def init_tests(self):
         logger.debug('Running pytest --collect-only')
 
+        args = [
+            '-v',
+            '--collect-only',
+            self.path
+        ]
+
         try:
-            exitcode = pytest.main(['-p', 'no:terminal', '--collect-only', self.path],
+            exitcode = pytest.main(args,
                                    plugins=[PytestPlugin(runner=self)])
         except Exception as e:
             return PytestExitcodes.CRASHED, traceback.format_exc(e)
@@ -174,7 +183,7 @@ class PytestRunner(Runner):
 
     @classmethod
     def process_init_tests(cls, path, write_pipe, pipe_size, pipe_semaphore, debug):
-        """ Class method as separate process entrypoint """
+        """ Class method as separate process entrypoint. """
         logging_tools.configure('pytui-runner.log', debug)
         logger.info('Init started (path: %s)', path)
 
@@ -190,6 +199,7 @@ class PytestRunner(Runner):
 
         logger.info('Init finished')
         runner.pipe_send('init_finished')
+        return exitcode
 
     @classmethod
     def process_run_tests(cls, path, failed_only, filtered, write_pipe,
@@ -220,12 +230,18 @@ class PytestRunner(Runner):
         logger.info('Test run finished')
         runner.pipe_send('run_finished')
 
+
+        return exitcode
+
     def item_collected(self, item):
         # self.tests[self.get_test_id(item)] = item
         self.pipe_send('item_collected', item_id=self.get_test_id(item))
 
     def run_tests(self, failed_only, filter_value):
-        args = ['-p', 'no:terminal', self.path]
+        args = [
+            '-v',
+            self.path
+        ]
         if failed_only:
             args.append('--lf')
 
