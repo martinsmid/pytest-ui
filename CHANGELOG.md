@@ -1,9 +1,17 @@
+version 0.3.5b0
+---------------
+
+- fix bug related to disabled terminal plugin
+- add non-fuzzy syntax in filter for exact matching
+
+
 version 0.3.4b0
 ---------------
 
 - add --debug/--no-debug option to CLI command
 - disable debug logging by default, enable with --debug
 - fix log garbage on screen in the debug mode, clear the screen after pytest run
+
 
 version 0.3.3b0
 ---------------

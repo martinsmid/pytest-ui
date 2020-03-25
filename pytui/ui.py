@@ -636,7 +636,7 @@ class TestRunnerUI(object):
 
 @click.command()
 @click.argument('path', default='.', type=click.Path(exists=True))
-@click.option('--debug/--no-debug', default=False)
+@click.option('--debug/--no-debug', default=False, show_default=True, help='Enable debug logging')
 def main(path, debug):
     logging_tools.configure('pytui-ui.log', debug)
     logger = get_logger('ui')

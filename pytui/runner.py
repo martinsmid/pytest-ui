@@ -168,7 +168,7 @@ class PytestRunner(Runner):
         logger.debug('Running pytest --collect-only')
 
         args = [
-            '-v',
+            '-vv',
             '--collect-only',
             self.path
         ]
@@ -239,7 +239,7 @@ class PytestRunner(Runner):
 
     def run_tests(self, failed_only, filter_value):
         args = [
-            '-v',
+            '-vv',
             self.path
         ]
         if failed_only:

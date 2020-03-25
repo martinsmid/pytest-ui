@@ -3,20 +3,30 @@
 # pytest-ui
 Text User Interface for running python tests. Still in _beta_ version
 
-# pip install
-  - provides the cli command `pytui`
-  - url on pypi
-    https://pypi.python.org/pypi/pytest-ui
+# installation
   - install using pip
     `pip install pytest-ui`
+  - provides the cli command `pytui`
 
-# controls
+# usage
+```
+$ pytui --help
+Usage: pytui [OPTIONS] [PATH]
+
+Options:
+  --debug / --no-debug  Enable debug logging  [default: False]
+  --help                Show this message and exit.
+```
+  - pypi address
+    https://pypi.python.org/pypi/pytest-ui
+
+# keyboard controls
   - <kbd>r</kbd>, <kbd>F5</kbd> - run tests (last failed or first run, using filter)
-  - <kbd>R</kbd>, <kbd>ctrl</kbd> + <kbd>F5</kbd> - run all tests (using filter)
+  - <kbd>R</kbd>, <kbd>Ctrl</kbd> + <kbd>F5</kbd> - run all tests (using filter)
   - <kbd>/</kbd> - focus filter input
-  - <kbd>ctrl</kbd> + <kbd>f</kbd> - clear filter input and focus it
+  - <kbd>Ctrl</kbd> + <kbd>f</kbd> - clear filter input and focus it
   - <kbd>F4</kbd> - toggle show only failed tests
-  - <kbd>alt</kbd> + <kbd>up</kbd>/<kbd>down</kbd> - navigate between failed tests (skipping passed)
+  - <kbd>Alt</kbd> + <kbd>Up</kbd>/<kbd>Down</kbd> - navigate between failed tests (skipping passed)
   - <kbd>q</kbd> - close window, quit (in main window)
 
 ## filter input
