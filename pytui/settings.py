@@ -4,4 +4,4 @@ DEBUG_MODULES = [
     # 'pytui',
 ]
 
-VERSION = '0.3.4b0'
+VERSION = '0.3.5b0'
