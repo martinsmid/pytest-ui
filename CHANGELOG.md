@@ -3,7 +3,7 @@ version 0.3.5b0
 
 - fix bug related to disabled terminal plugin
 - add non-fuzzy syntax in filter for exact matching
-
+- increase pytest verbosity for detailed assert diffs.
 
 version 0.3.4b0
 ---------------
