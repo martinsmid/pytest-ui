@@ -348,14 +348,14 @@ class TestRunnerUI(object):
         ('teardown',    'white',      'dark blue',             '', '',     ''),
     ]
 
-    def __init__(self, runner_class, path, debug):
+    def __init__(self, runner_class, debug, pytest_args):
         logger.info('Runner UI init')
         urwid.set_encoding("UTF-8")
 
         self.runner_class = runner_class
-        self.path = path
         self.debug = debug
         self.store = Store(self)
+        self.pytest_args = pytest_args
 
         self.main_loop = None
         self.w_main = None
@@ -404,7 +404,10 @@ class TestRunnerUI(object):
         self.runner_process = multiprocessing.Process(
             target=self.runner_class.process_init_tests,
             name='pytui-runner',
-            args=(self.path, self.child_pipe, self.pipe_size, self.pipe_semaphore, self.debug)
+            args=(self.child_pipe, self.pipe_size, self.pipe_semaphore, self.debug),
+            kwargs={
+                'pytest_args': self.pytest_args
+            }
         )
         self.runner_process.start()
 
@@ -506,8 +509,11 @@ class TestRunnerUI(object):
         self.runner_process = multiprocessing.Process(
             target=self.runner_class.process_run_tests,
             name='pytui-runner',
-            args=(self.path, failed_only, filtered, self.child_pipe, self.pipe_size,
-                  self.pipe_semaphore, self.store.filter_value, self.debug)
+            args=(failed_only, filtered, self.child_pipe, self.pipe_size,
+                  self.pipe_semaphore, self.store.filter_value, self.debug),
+            kwargs={
+                'pytest_args': self.pytest_args
+            }
         )
         self.runner_process.start()
 
@@ -634,15 +640,18 @@ class TestRunnerUI(object):
             self.store.show_failed_only = not self.store.show_failed_only
 
 
-@click.command()
-@click.argument('path', default='.', type=click.Path(exists=True))
+@click.command(context_settings={
+    'ignore_unknown_options': True,
+    'allow_extra_args': True,
+})
 @click.option('--debug/--no-debug', default=False, show_default=True, help='Enable debug logging')
-def main(path, debug):
+@click.pass_context
+def main(ctx, debug):
     logging_tools.configure('pytui-ui.log', debug)
     logger = get_logger('ui')
     logger.info('Configured logging')
 
-    ui = TestRunnerUI(PytestRunner, path, debug)
+    ui = TestRunnerUI(PytestRunner, debug, ctx.args)
     ui.run()
 
 if __name__ == '__main__':

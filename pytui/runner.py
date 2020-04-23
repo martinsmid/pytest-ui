@@ -44,8 +44,7 @@ def get_chunks(string):
 
 
 class Runner(object):
-    def __init__(self, path='.', write_pipe=None, pipe_size=None, pipe_semaphore=None):
-        self.path = path
+    def __init__(self, write_pipe=None, pipe_size=None, pipe_semaphore=None):
         self.tests = OrderedDict()
         logger.debug('%s Init', self.__class__.__name__)
         self.write_pipe = os.fdopen(write_pipe, 'wb', 0)
@@ -164,14 +163,32 @@ class PytestRunner(Runner):
     def get_test_id(self, test):
         return test.nodeid  #.replace('/', '.')
 
-    def init_tests(self):
+    @classmethod
+    def process_init_tests(cls, write_pipe, pipe_size, pipe_semaphore, debug, pytest_args):
+        """ Class method as separate process entrypoint. """
+        logging_tools.configure('pytui-runner.log', debug)
+
+        sys.stdout = stdout_logger_writer
+        sys.stderr = stderr_logger_writer
+
+        runner = cls(write_pipe=write_pipe, pipe_size=pipe_size, pipe_semaphore=pipe_semaphore)
+        exitcode, description = runner.init_tests(pytest_args)
+
+        if exitcode != PytestExitcodes.ALL_COLLECTED:
+            logger.warning('pytest failed with exitcode %d', exitcode)
+            runner.set_pytest_error(exitcode, description)
+
+        logger.info('Init finished')
+        runner.pipe_send('init_finished')
+        return exitcode
+
+    def init_tests(self, pytest_args):
         logger.debug('Running pytest --collect-only')
 
         args = [
             '-vv',
             '--collect-only',
-            self.path
-        ]
+        ] + pytest_args
 
         try:
             exitcode = pytest.main(args,
@@ -182,39 +199,22 @@ class PytestRunner(Runner):
         return exitcode, None
 
     @classmethod
-    def process_init_tests(cls, path, write_pipe, pipe_size, pipe_semaphore, debug):
-        """ Class method as separate process entrypoint. """
-        logging_tools.configure('pytui-runner.log', debug)
-        logger.info('Init started (path: %s)', path)
-
-        sys.stdout = stdout_logger_writer
-        sys.stderr = stderr_logger_writer
-
-        runner = cls(path, write_pipe=write_pipe, pipe_size=pipe_size, pipe_semaphore=pipe_semaphore)
-        exitcode, description = runner.init_tests()
-
-        if exitcode != PytestExitcodes.ALL_COLLECTED:
-            logger.warning('pytest failed with exitcode %d', exitcode)
-            runner.set_pytest_error(exitcode, description)
-
-        logger.info('Init finished')
-        runner.pipe_send('init_finished')
-        return exitcode
-
-    @classmethod
-    def process_run_tests(cls, path, failed_only, filtered, write_pipe,
-                          pipe_size, pipe_semaphore, filter_value, debug):
+    def process_run_tests(cls, failed_only, filtered, write_pipe,
+                          pipe_size, pipe_semaphore, filter_value, debug,
+                          pytest_args):
         """ Class method as separate process entrypoint """
         logging_tools.configure('pytui-runner.log', debug)
-        logger.info('Test run started (failed_only: %s, filtered: %s)', failed_only, filtered)
+        logger = get_logger(log_name)
+        logger.info('Test run started (failed_only: %s, filtered: %s, pytest args: %s)',
+                    failed_only, filtered, ' '.join(pytest_args))
 
         sys.stdout = stdout_logger_writer
         sys.stderr = stderr_logger_writer
 
-        runner = cls(path, write_pipe=write_pipe, pipe_size=pipe_size,
+        runner = cls(write_pipe=write_pipe, pipe_size=pipe_size,
                      pipe_semaphore=pipe_semaphore)
         try:
-            exitcode, description = runner.run_tests(failed_only, filter_value)
+            exitcode, description = runner.run_tests(failed_only, filter_value, pytest_args)
         except Exception as exc:
             exitcode = PytestExitcodes.CRASHED
             description = str(exc)
@@ -230,20 +230,19 @@ class PytestRunner(Runner):
         logger.info('Test run finished')
         runner.pipe_send('run_finished')
 
-
         return exitcode
 
     def item_collected(self, item):
         # self.tests[self.get_test_id(item)] = item
         self.pipe_send('item_collected', item_id=self.get_test_id(item))
 
-    def run_tests(self, failed_only, filter_value):
+    def run_tests(self, failed_only, filter_value, pytest_args):
         args = [
             '-vv',
-            self.path
         ]
         if failed_only:
             args.append('--lf')
+        args += pytest_args
 
         try:
             exitcode = pytest.main(
