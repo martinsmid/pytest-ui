@@ -26,19 +26,18 @@ class PytestRunnerTests(TestCase):
 
     def test_skipping(self):
         runner = PytestRunner(
-            'test_projects/test_module_a/',
             self.pipe_mock.fileno(),
             self.pipe_size_mock,
             self.pipe_semaphore_mock
         )
         with mock.patch.object(PytestRunner, 'pipe_send') as pipe_send_mock:
             logger.debug('------ runner init ------')
-            exitcode, _description = runner.init_tests()
+            exitcode, _description = runner.init_tests(['test_projects/test_module_a/'])
             assert exitcode == 0
             # logger.debug(pipe_send_mock.call_args_list)
 
             logger.debug('------ runner run_tests ------')
-            exitcode, _description = runner.run_tests(False, 'xfail')
+            exitcode, _description = runner.run_tests(False, 'xfail', ['test_projects/test_module_a/'])
             assert exitcode == 1
             logger.debug(pipe_send_mock.call_args_list)
 
@@ -49,11 +48,11 @@ class PytestRunnerTests(TestCase):
         Test whether set_pytest_error(exitcode=1) is sent to ui from runner throught the pipe.
         """
         PytestRunner.process_init_tests(
-            'test_projects/test_module_a/',
             self.pipe_mock.fileno(),
             self.pipe_size_mock,
             self.pipe_semaphore_mock,
-            debug=True
+            True,
+            ['test_projects/test_module_a/'],
         )
 
         assert pipe_send_mock.call_args_list == [
