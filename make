@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-import subprocess
-import doit
 import sys
+import shutil
+import doit
+import subprocess
 from git import Repo
-
 
 def get_release_tag():
     """ Ask user for release tag and return it """
@@ -13,7 +13,7 @@ def get_release_tag():
     if current_tag:
         use_current = input(f'Use current tag "{current_tag.name}" for release ? [y/n] : ')
         if use_current == 'y':
-            return current_tag
+            return current_tag.name
 
     # print all/previous release tags
     output = subprocess.check_output(['git', 'tag', '--list', 'v*']).decode()
@@ -40,15 +40,18 @@ def prepare():
 def build():
     # get release tag
     release_tag = get_release_tag()
-
+    changelog_tag = release_tag[1:]
     # check changelog
-    cmd = subprocess.run(["grep", f'v{release_tag}', "CHANGELOG.md"])
+    cmd = subprocess.run(["grep", f'{changelog_tag}', "CHANGELOG.md"])
     if cmd.returncode != 0:
         print(f'Update CHANGELOG.md. Current release tag "{release_tag}" not found.')
         sys.exit(2)
 
     # tag release
     subprocess.run(["git", "tag", release_tag])
+
+    # clean build dir
+    shutil.rmtree('dist')
 
     # build
     run_setup_build()
@@ -66,16 +69,30 @@ def publish(pypi_repo_name):
     return True
 
 
+def info(live):
+    _type = 'live' if live else 'test'
+    print(f'Doing a {_type} release.')
+
+
 def task_release(live=False):
     """ Build a package. Prepare files for upload. """
     pypi_repo_name = 'pypi' if live else 'pypitest'
-    pypi_repo_name = 'pypi'
 
     return {
         'actions': [
+            info,
             prepare,
             build,
             (publish, [pypi_repo_name]),
+        ],
+        'params': [
+            {
+                'name': 'live',
+                'long': 'live',
+                'help': 'make a real release, not a test',
+                'type': bool,
+                'default': False
+            }
         ],
         'verbosity': 2,
     }
