@@ -47,16 +47,16 @@ class TestLine(urwid.Widget):
         result_state_str = self.test_data.get('result_state', '')
         (maxcol,) = size
         attr = []
-        title_width = maxcol - 13
+        title_width = maxcol - 11
         main_attr = (self.test_data.get('runstate'), title_width)
         state_attr = (result_state_str, 10)
         return urwid.TextCanvas(
-            [('{} [{:10}]'.format(
+            [('{} {:^10}'.format(
                 self.test_data['id'][:title_width].ljust(title_width),
-                result_state_str[:10]
+                result_state_str[:10].upper()
             )).encode('utf-8')],
             maxcol=maxcol,
-            attr=[[main_attr, (None, 2), state_attr, (None, 1)]]
+            attr=[[main_attr, (None, 1), state_attr]]
         )
 
     def keypress(self, size, key):
