@@ -2,6 +2,9 @@ from __future__ import unicode_literals
 from builtins import object
 
 import re
+from .logging_tools import get_logger
+
+logger = get_logger('ui')
 
 def get_fuzzy_regex(fuzzy_str):
     return '.*?'.join(list(iter(
@@ -14,7 +17,7 @@ def get_filter_regex_str(filter_value):
 
     pieces = filter_value.split('#')
 
-    return ''.join(
+    return '.*'.join(
         (   get_fuzzy_regex(value) if i % 2 == 0 else value
             for i, value in enumerate(pieces)
         )
@@ -25,6 +28,7 @@ def get_filter_regex(filter_value):
         return None
 
     regexp_str = get_filter_regex_str(filter_value)
+    logger.debug('filter_regex %s', regexp_str)
     return re.compile(regexp_str, re.UNICODE + re.IGNORECASE)
 
 
