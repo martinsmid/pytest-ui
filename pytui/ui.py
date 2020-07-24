@@ -44,7 +44,7 @@ class TestLine(urwid.Widget):
         return 1
 
     def render(self, size, focus=False):
-        result_state_str = self.test_data.get('result_state', '')
+        result_state_str = self.test_data.get('result_state', '..')
         (maxcol,) = size
         attr = []
         title_width = maxcol - 11
@@ -340,6 +340,7 @@ class TestRunnerUI(object):
         ('error',       'brown',      '',             '', '#f88', '#b00'),
         ('skipped',     'brown', '',             '', '#f88', '#b00'),
         ('ok',          'dark green', '',             '', '',     ''),
+        ('..',          'dark gray', '',             '', '',     ''),
 
 
         # run states
