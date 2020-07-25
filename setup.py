@@ -25,6 +25,9 @@ setup(
         'urwid',
         'click',
     ],
+    tests_require=[
+        'mock'
+    ],
     classifiers=[
         'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
