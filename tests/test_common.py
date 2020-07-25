@@ -24,7 +24,7 @@ def test_filter_regex_str(input, expected):
 
 
 def test_fitler_match():
-    store = Store(Mock())
+    store = Store(mock.Mock())
     store.is_test_failed = lambda x: True
     store.item_collected('test_1_abdefghij')
     store.item_collected('test_2_bheifhefe')
