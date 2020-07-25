@@ -3,7 +3,10 @@ from __future__ import unicode_literals
 
 import pytest
 from unittest import TestCase
-from unittest.mock import Mock
+try:
+    from unittest import mock
+except ImportError:
+    import mock
 from pytui.common import get_filter_regex_str
 from pytui.ui import Store
 
