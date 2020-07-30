@@ -30,6 +30,17 @@ from .runner import PytestRunner
 
 logger = get_logger('ui')
 
+class TestStatus:
+    XFAIL = 'xfail'
+    XPASS = 'xpass'
+    FAILED = 'failed'
+    ERROR = 'error'
+    SKIPPED = 'skipped'
+    OK = 'ok'
+    NOOP = '..'
+
+
+
 class TestLine(urwid.Widget):
     _sizing = frozenset(['flow'])
     _selectable = True
@@ -334,13 +345,13 @@ class TestRunnerUI(object):
         ('statusline',  'white',      'dark blue',    '', '',     ''),
 
         # result states
-        ('xfail',       'brown',  '',             '', '',     '#b00'),
-        ('xpass',       'brown',  '',             '', '',     '#b00'),
-        ('failed',      'light red',  '',             '', '',     '#b00'),
-        ('error',       'brown',      '',             '', '#f88', '#b00'),
-        ('skipped',     'brown', '',             '', '#f88', '#b00'),
-        ('ok',          'dark green', '',             '', '',     ''),
-        ('..',          'dark gray', '',             '', '',     ''),
+        (TestStatus.XFAIL,       'brown',  '',             '', '',     '#b00'),
+        (TestStatus.XPASS,       'brown',  '',             '', '',     '#b00'),
+        (TestStatus.FAILED,      'light red',  '',             '', '',     '#b00'),
+        (TestStatus.ERROR,       'brown',      '',             '', '#f88', '#b00'),
+        (TestStatus.SKIPPED,     'brown', '',             '', '#f88', '#b00'),
+        (TestStatus.OK,          'dark green', '',             '', '',     ''),
+        (TestStatus.NOOP,        'dark gray', '',             '', '',     ''),
 
 
         # run states
