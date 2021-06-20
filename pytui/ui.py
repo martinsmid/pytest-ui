@@ -9,6 +9,7 @@ from builtins import object
 
 import warnings
 warnings.filterwarnings("ignore")
+import os
 import sys
 import json
 import urwid
@@ -20,6 +21,8 @@ import _thread
 from collections import OrderedDict, defaultdict
 
 from tblib import Traceback
+
+sys.path.insert(0, os.path.dirname(__file__))
 
 from . import settings
 from . import logging_tools
@@ -180,20 +183,35 @@ class Store(object):
         return len([test_id for test_id, test in list(self.current_test_list.items())
                         if self.is_test_failed(test)])
 
-    def _get_tests(self, failed_only=True, filtered=True, include_lf_exempt=True, collected=True):
+    def _get_tests(self, failed_only=True, filtered=True, include_lf_exempt=True, collected=True, select_tests=None):
+        """
+        Return list of tests based on argument filters
+        """
         logger.info('_get_tests failed_only: %s filtered: %s include_lf_exempt %s collected %s',
                      failed_only, filtered, include_lf_exempt, collected)
         return OrderedDict([
             (test_id, test)
                 for test_id, test in list(self.test_data.items())
-                if (not failed_only
-                  or self.is_test_failed(test))
-                and (not filtered
-                   or self.is_test_filtered(test_id))
-                and (not test.get('last_failed_exempt')
-                   or include_lf_exempt)
-                and (collected
-                   or not test.get('result_state', '') == '')
+                if (
+                    not failed_only
+                    or self.is_test_failed(test)
+                )
+                and (
+                    not filtered
+                    or self.is_test_filtered(test_id)
+                )
+                and (
+                    not test.get('last_failed_exempt')
+                    or include_lf_exempt
+                )
+                and (
+                    collected
+                    or not test.get('result_state', '') == ''
+                )
+                and (
+                    select_tests is None
+                    or test_id in select_tests
+                )
         ])
 
     def set_test_result(self, test_id, result_state, output, when, outcome,
@@ -501,7 +519,12 @@ class TestRunnerUI(object):
             'center', ('relative', 90), 'middle', ('relative', 85)
         )
 
-    def run_tests(self, failed_only=True, filtered=None):
+    def run_tests(self, failed_only=True, filtered=None, select_tests=None):
+        """
+            failed_only
+            filtered
+            filter_value
+        """
         if self.runner_process and self.runner_process.is_alive():
             logger.info('Tests are already running')
             return
@@ -515,7 +538,12 @@ class TestRunnerUI(object):
         logger.info('Running tests (failed_only: %r, filtered: %r)', failed_only, filtered)
         self._first_failed_focused = False
 
-        tests = self.store._get_tests(failed_only, filtered, include_lf_exempt=False)
+        tests = self.store._get_tests(
+            failed_only,
+            filtered,
+            include_lf_exempt=False,
+            select_tests=select_tests
+        )
         self.store.invalidate_test_results(tests)
 
         self.runner_process = multiprocessing.Process(
@@ -524,7 +552,8 @@ class TestRunnerUI(object):
             args=(failed_only, filtered, self.child_pipe, self.pipe_size,
                   self.pipe_semaphore, self.store.filter_value, self.debug),
             kwargs={
-                'pytest_args': self.pytest_args
+                'pytest_args': self.pytest_args,
+                'select_tests': select_tests
             }
         )
         self.runner_process.start()
@@ -648,6 +677,11 @@ class TestRunnerUI(object):
             self.focus_failed_sibling(1)
         elif key == 'meta up':
             self.focus_failed_sibling(-1)
+        elif key == '1':
+            self.run_tests(
+                failed_only=False,
+                select_tests=['test_projects/test_module_a/test_feat_1.py::TestOutputCapturing::test_feat_1_case_4']
+            )
         elif key == 'f4':
             self.store.show_failed_only = not self.store.show_failed_only
 
