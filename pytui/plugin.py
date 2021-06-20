@@ -4,17 +4,18 @@ from builtins import str
 from builtins import filter
 from builtins import object
 
-from . import logging_tools
-from .common import get_filter_regex
+import logging_tools
+from common import get_filter_regex
 
 
 logger = logging_tools.get_logger('runner.plugin')
 
 
 class PytestPlugin(object):
-    def __init__(self, runner, filter_value=None, config=None):
+    def __init__(self, runner, filter_value=None, config=None, select_tests=None):
         self.runner = runner
         self.filter_regex = get_filter_regex(filter_value)
+        self.select_tests = select_tests
         logger.debug('plugin init %s %s', runner, filter_value)
 
     def pytest_runtest_protocol(self, item, nextitem):
@@ -78,14 +79,28 @@ class PytestPlugin(object):
 
     def pytest_collection_modifyitems(self, session, config, items):
         logger.debug('pytest_collection_modifyitems %s %s %s', session, config, items)
+        logger.debug('pytest_collection_modifyitems select_tests %s', self.select_tests)
         def is_filtered(item):
-            return self.filter_regex.findall(self.runner.get_test_id(item))
+            """Return True if item meets the filtering conditions.
+            Filtering conditions are determined by the filter_regex and select_tests members.
+            """
+            test_id = self.runner.get_test_id(item)
+            return (
+                (
+                    self.filter_regex is None
+                    or self.filter_regex.findall(test_id)
+                )
+                and
+                (
+                    self.select_tests is None
+                    or test_id in self.select_tests
+                )
+            )
 
-        # import pdb; pdb.set_trace()
-        if self.filter_regex:
+        if self.filter_regex or self.select_tests:
             items[:] = list(filter(is_filtered, items))
 
-        logger.debug('collect filtered  %s', [i.nodeid for i in items])
+        logger.debug('pytest_collection_modifyitems filtered  %s', [i.nodeid for i in items])
 
     def pytest_exception_interact(self, node, call, report):
         logger.debug('pytest_exception_interact %s %s %s', node.nodeid, call, report)

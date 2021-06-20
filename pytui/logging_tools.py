@@ -6,7 +6,7 @@ import logging
 import logging.config
 from io import IOBase
 
-from . import settings
+import settings
 
 
 DEBUG_A = 9
