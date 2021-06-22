@@ -6,6 +6,7 @@ from .logging_tools import get_logger
 
 logger = get_logger('ui')
 
+
 def get_fuzzy_regex(fuzzy_str):
     return '.*?'.join(list(iter(
         fuzzy_str.replace('.', r'\.').replace(r'\\', '\\\\')
@@ -13,15 +14,13 @@ def get_fuzzy_regex(fuzzy_str):
 
 
 def get_filter_regex_str(filter_value):
-    filter_exact = ''
-
     pieces = filter_value.split('#')
-
     return '.*'.join(
-        (   get_fuzzy_regex(value) if i % 2 == 0 else value
+        (get_fuzzy_regex(value) if i % 2 == 0 else value
             for i, value in enumerate(pieces)
-        )
+         )
     )
+
 
 def get_filter_regex(filter_value):
     if not filter_value:

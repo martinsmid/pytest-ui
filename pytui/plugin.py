@@ -53,7 +53,8 @@ class PytestPlugin(object):
         self.runner.item_collected(item)
 
     def pytest_runtest_makereport(self, item, call):
-        logger.debug('pytest_runtest_makereport %s %s %s', item.nodeid, call.when, str(call.excinfo))
+        logger.debug('pytest_runtest_makereport %s %s %s',
+                     item.nodeid, call.when, str(call.excinfo))
         evalxfail = getattr(item, '_evalxfail', None)
         wasxfail = evalxfail and evalxfail.wasvalid() and evalxfail.istrue()
         if evalxfail:
@@ -62,7 +63,8 @@ class PytestPlugin(object):
                          wasxfail, evalxfail.wasvalid(), evalxfail.istrue(), xfail_strict)
 
         if call.excinfo:
-            logger.debug('excinfo: %s reason: %s', call.excinfo, getattr(call.excinfo.value, 'msg', '-'))
+            logger.debug('excinfo: %s reason: %s',
+                         call.excinfo, getattr(call.excinfo.value, 'msg', '-'))
             self.runner.set_exception_info(item.nodeid, call.excinfo, call.when, wasxfail, None)
         elif wasxfail and call.when == 'call':
             self.runner.set_exception_info(item.nodeid, None, call.when, wasxfail, xfail_strict)
@@ -74,12 +76,10 @@ class PytestPlugin(object):
             report
         )
 
-    def pytest_collectreport(self, report):
-        logger.debug('pytest_collectreport %s', report)
-
     def pytest_collection_modifyitems(self, session, config, items):
         logger.debug('pytest_collection_modifyitems %s %s %s', session, config, items)
         logger.debug('pytest_collection_modifyitems select_tests %s', self.select_tests)
+
         def is_filtered(item):
             """Return True if item meets the filtering conditions.
             Filtering conditions are determined by the filter_regex and select_tests members.
@@ -87,13 +87,9 @@ class PytestPlugin(object):
             test_id = self.runner.get_test_id(item)
             return (
                 (
-                    self.filter_regex is None
-                    or self.filter_regex.findall(test_id)
-                )
-                and
-                (
-                    self.select_tests is None
-                    or test_id in self.select_tests
+                    self.filter_regex is None or self.filter_regex.findall(test_id)
+                ) and (
+                    self.select_tests is None or test_id in self.select_tests
                 )
             )
 
@@ -105,4 +101,3 @@ class PytestPlugin(object):
     def pytest_exception_interact(self, node, call, report):
         logger.debug('pytest_exception_interact %s %s %s', node.nodeid, call, report)
         self.runner.set_exception_info(node.nodeid, call.excinfo, call.when, False, None)
-
