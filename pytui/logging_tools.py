@@ -1,6 +1,6 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
-from builtins import object
+from builtins import object  # noqa: F401
 
 import logging
 import logging.config
@@ -37,7 +37,8 @@ def configure(filename, debug):
         'disable_existing_loggers': True,
         'formatters': {
             'process': {
-                'format': '%(created)f %(msecs)25.19f %(name)-25s  %(levelname)-7s  %(message)s',
+                'format':
+                    '%(created)f %(msecs)25.19f %(name)-25s  %(levelname)-7s  %(message)s',
             }
         },
         'handlers': {

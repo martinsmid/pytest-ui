@@ -14,24 +14,21 @@ import sys
 import json
 import urwid
 import click
-import logging
 import traceback
 import multiprocessing
-import _thread
-from collections import OrderedDict, defaultdict
+from collections import OrderedDict
 
 from tblib import Traceback
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from . import settings
-from . import logging_tools
-from .logging_tools import get_logger, DEBUG_B
-from .common import get_filter_regex, PytestExitcodes
-from .runner import PytestRunner
-
+import logging_tools
+from logging_tools import get_logger, DEBUG_B
+from common import get_filter_regex, PytestExitcodes
+from runner import PytestRunner
 
 logger = get_logger('ui')
+
 
 class TestStatus:
     XFAIL = 'xfail'
@@ -41,7 +38,6 @@ class TestStatus:
     SKIPPED = 'skipped'
     OK = 'ok'
     NOOP = '..'
-
 
 
 class TestLine(urwid.Widget):
@@ -60,7 +56,6 @@ class TestLine(urwid.Widget):
     def render(self, size, focus=False):
         result_state_str = self.test_data.get('result_state', '..')
         (maxcol,) = size
-        attr = []
         title_width = maxcol - 11
         main_attr = (self.test_data.get('runstate'), title_width)
         state_attr = (result_state_str, 10)
@@ -96,9 +91,9 @@ class StatusLine(urwid.Widget):
         return urwid.TextCanvas(
             ['Total: {} Filtered: {} Failed: {}'
              .format(stats['total'], stats['filtered'], stats['failed'])
-             .encode('utf-8')
-            ],
-            maxcol=maxcol)
+             .encode('utf-8')],
+            maxcol=maxcol
+        )
 
 
 class TestResultWindow(urwid.LineBox):
@@ -158,7 +153,6 @@ class Store(object):
             collected=self._show_collected
         )
 
-
     def get_test_stats(self):
         return {
             'total': len(self.test_data),
@@ -180,42 +174,55 @@ class Store(object):
         return self.test_data[test_id]['position']
 
     def get_failed_test_count(self):
-        return len([test_id for test_id, test in list(self.current_test_list.items())
-                        if self.is_test_failed(test)])
+        return len(
+            [
+                test_id
+                for test_id, test in list(self.current_test_list.items())
+                if self.is_test_failed(test)
+            ]
+        )
 
-    def _get_tests(self, failed_only=True, filtered=True, include_lf_exempt=True, collected=True, select_tests=None):
+    def _get_tests(
+        self,
+        failed_only=True,
+        filtered=True,
+        include_lf_exempt=True,
+        collected=True,
+        select_tests=None
+    ):
         """
         Return list of tests based on argument filters
         """
         logger.info('_get_tests failed_only: %s filtered: %s include_lf_exempt %s collected %s',
-                     failed_only, filtered, include_lf_exempt, collected)
+                    failed_only, filtered, include_lf_exempt, collected)
         return OrderedDict([
             (test_id, test)
-                for test_id, test in list(self.test_data.items())
-                if (
-                    not failed_only
-                    or self.is_test_failed(test)
-                )
-                and (
-                    not filtered
-                    or self.is_test_filtered(test_id)
-                )
-                and (
-                    not test.get('last_failed_exempt')
-                    or include_lf_exempt
-                )
-                and (
-                    collected
-                    or not test.get('result_state', '') == ''
-                )
-                and (
-                    select_tests is None
-                    or test_id in select_tests
-                )
+            for test_id, test in list(self.test_data.items())
+            if (
+                not failed_only or self.is_test_failed(test)
+            ) and (
+                not filtered or self.is_test_filtered(test_id)
+            ) and (
+                not test.get('last_failed_exempt') or include_lf_exempt
+            ) and (
+                collected or not test.get('result_state', '') == ''
+            ) and (
+                select_tests is None or test_id in select_tests
+            )
         ])
 
-    def set_test_result(self, test_id, result_state, output, when, outcome,
-                        exc_type=None, exc_value=None, extracted_traceback=None, last_failed_exempt=None):
+    def set_test_result(
+        self,
+        test_id,
+        result_state,
+        output,
+        when,
+        outcome,
+        exc_type=None,
+        exc_value=None,
+        extracted_traceback=None,
+        last_failed_exempt=None
+    ):
         """
             Set test result in internal dictionary. Updates UI.
 
@@ -224,7 +231,7 @@ class Store(object):
         """
         update_listbox = False
 
-        if not test_id in self.test_data:
+        if test_id not in self.test_data:
             self.test_data[test_id] = {
                 'id': test_id
             }
@@ -234,8 +241,7 @@ class Store(object):
             py_traceback = Traceback.from_dict(extracted_traceback).as_traceback()
             extracted_traceback = traceback.extract_tb(py_traceback)
             output += ''.join(
-                traceback.format_list(extracted_traceback) +
-                [exc_value]
+                traceback.format_list(extracted_traceback) + [exc_value]
             )
 
         test_data = self.test_data[test_id]
@@ -247,8 +253,9 @@ class Store(object):
 
         # Ignore success, except for the 'call' step
         # ignore successive failure, take only the first
-        if (outcome != 'passed' or when == 'call') \
-            and not test_data.get('result_state'):
+        if (
+            (outcome != 'passed' or when == 'call') and not test_data.get('result_state')
+        ):
             test_data['result_state'] = result_state
             test_data['output'] = output
             if update_listbox:
@@ -267,7 +274,15 @@ class Store(object):
         self.ui.update_test_line(test_data)
         self.ui.set_listbox_focus(test_data)
 
-    def set_exception_info(self, test_id, exc_type, exc_value, extracted_traceback, result_state, when):
+    def set_exception_info(
+        self,
+        test_id,
+        exc_type,
+        exc_value,
+        extracted_traceback,
+        result_state,
+        when
+    ):
         self.set_test_result(
             test_id, result_state, exc_value, when, result_state,
             exc_type, exc_value, extracted_traceback
@@ -292,7 +307,10 @@ class Store(object):
         test_data['widget']._invalidate()
 
     def is_test_failed(self, test_data):
-        failed = not test_data or test_data.get('result_state') in self.ui.runner_class._test_fail_states
+        failed = (
+            not test_data or
+            test_data.get('result_state') in self.ui.runner_class._test_fail_states
+        )
         return failed
 
     def is_test_filtered(self, test_id):
@@ -357,25 +375,25 @@ class Store(object):
 
 class TestRunnerUI(object):
     palette = [
-        ('reversed',    '',           'dark green'),
-        ('edit',        '',           'black',    '', '',     '#008'),
-        ('edit_focus',  '',           'dark gray',   '', '',     '#00b'),
-        ('statusline',  'white',      'dark blue',    '', '',     ''),
+        ('reversed',    '',           'dark green'),                                  # noqa: E241
+        ('edit',        '',           'black',    '', '',     '#008'),                # noqa: E241
+        ('edit_focus',  '',           'dark gray',   '', '',     '#00b'),             # noqa: E241
+        ('statusline',  'white',      'dark blue',    '', '',     ''),                # noqa: E241
 
         # result states
-        (TestStatus.XFAIL,       'brown',  '',             '', '',     '#b00'),
-        (TestStatus.XPASS,       'brown',  '',             '', '',     '#b00'),
-        (TestStatus.FAILED,      'light red',  '',             '', '',     '#b00'),
-        (TestStatus.ERROR,       'brown',      '',             '', '#f88', '#b00'),
-        (TestStatus.SKIPPED,     'brown', '',             '', '#f88', '#b00'),
-        (TestStatus.OK,          'dark green', '',             '', '',     ''),
-        (TestStatus.NOOP,        'dark gray', '',             '', '',     ''),
+        (TestStatus.XFAIL,       'brown',  '',             '', '',     '#b00'),       # noqa: E241
+        (TestStatus.XPASS,       'brown',  '',             '', '',     '#b00'),       # noqa: E241
+        (TestStatus.FAILED,      'light red',  '',             '', '',     '#b00'),   # noqa: E241
+        (TestStatus.ERROR,       'brown',      '',             '', '#f88', '#b00'),   # noqa: E241
+        (TestStatus.SKIPPED,     'brown', '',             '', '#f88', '#b00'),        # noqa: E241
+        (TestStatus.OK,          'dark green', '',             '', '',     ''),       # noqa: E241
+        (TestStatus.NOOP,        'dark gray', '',             '', '',     ''),        # noqa: E241
 
 
         # run states
-        ('setup',       'white',      'dark blue',             '', '',     ''),
-        ('call',        'white',      'dark blue',             '', '',     ''),
-        ('teardown',    'white',      'dark blue',             '', '',     ''),
+        ('setup',       'white',      'dark blue',             '', '',     ''),       # noqa: E241
+        ('call',        'white',      'dark blue',             '', '',     ''),       # noqa: E241
+        ('teardown',    'white',      'dark blue',             '', '',     ''),       # noqa: E241
     ]
 
     def __init__(self, runner_class, debug, pytest_args):
@@ -463,7 +481,7 @@ class TestRunnerUI(object):
                 payload = json.loads(chunk.decode('utf-8'))
                 assert 'method' in payload
                 assert 'params' in payload
-            except Exception as e:
+            except Exception:
                 logger.debug('Failed to parse runner input: "%s"', chunk)
                 # release the write end if waiting for read
                 logger.log(DEBUG_B, 'pipe_size decrease to correct value')
@@ -474,7 +492,7 @@ class TestRunnerUI(object):
                 return
 
             # correct buffer
-            self.receive_buffer = self.receive_buffer[len(chunk)+1:]
+            self.receive_buffer = self.receive_buffer[len(chunk) + 1:]
             logger.debug('handling method %s', payload['method'])
             try:
                 if payload['method'] == 'item_collected':
@@ -501,10 +519,12 @@ class TestRunnerUI(object):
             self.pipe_semaphore.set()
             logger.log(DEBUG_B, 'released semaphore')
 
-
     def run(self):
-        self.main_loop = urwid.MainLoop(self.w_main, palette=self.palette,
-                       unhandled_input=self.unhandled_keypress)
+        self.main_loop = urwid.MainLoop(
+            self.w_main,
+            palette=self.palette,
+            unhandled_input=self.unhandled_keypress
+        )
         self.child_pipe = self.main_loop.watch_pipe(self.received_output)
 
         self.init_test_data()
@@ -562,6 +582,8 @@ class TestRunnerUI(object):
         # self.w_main._invalidate()
         # self.main_loop.draw_screen()
 
+    def run_selected_tests(self, failed_only, filtered, select_tests=None):
+        self.run_tests(failed_only, filtered, select_tests)
 
     def update_test_result(self, test_data):
         display_result_state = test_data.get('result_state', '')
@@ -654,6 +676,11 @@ class TestRunnerUI(object):
             except IndexError:
                 pass
 
+    def get_selected_testline(self):
+        focus_widget, idx = self.w_test_listbox.get_focus()
+        test_line = focus_widget.original_widget
+        return test_line
+
     def quit(self):
         self.pipe_semaphore.set()
         if self.runner_process and self.runner_process.is_alive():
@@ -662,26 +689,46 @@ class TestRunnerUI(object):
         raise urwid.ExitMainLoop()
 
     def unhandled_keypress(self, key):
+        # quit program
         if key in ('q', 'Q'):
             self.quit()
+
+        # focus search/filter bar
         elif key == '/':
             self.w_main.original_widget.set_focus(2)
+
+        # start new search/filtering
         elif key == 'ctrl f':
             self.w_filter_edit.set_edit_text('')
             self.w_main.original_widget.set_focus(2)
+
+        # run all tests
         elif key == 'R' or key == 'ctrl f5':
             self.run_tests(False)
+
+        # rerun failed tests
         elif key == 'r' or key == 'f5':
             self.run_tests(True)
+
+        # move cursor down
         elif key == 'meta down':
             self.focus_failed_sibling(1)
+
+        # move cursor up
         elif key == 'meta up':
             self.focus_failed_sibling(-1)
-        elif key == '1':
-            self.run_tests(
+
+        # run single test on cursor
+        elif key == 's':
+            test_line = self.get_selected_testline()
+            test_id = test_line.test_data['id']
+            self.run_selected_tests(
                 failed_only=False,
-                select_tests=['test_projects/test_module_a/test_feat_1.py::TestOutputCapturing::test_feat_1_case_4']
+                filtered=True,
+                select_tests=[test_id]
             )
+
+        # toggle to show only failed test
         elif key == 'f4':
             self.store.show_failed_only = not self.store.show_failed_only
 
@@ -699,6 +746,7 @@ def main(ctx, debug):
 
     ui = TestRunnerUI(PytestRunner, debug, ctx.args)
     ui.run()
+
 
 if __name__ == '__main__':
     main()

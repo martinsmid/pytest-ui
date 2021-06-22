@@ -10,13 +10,11 @@ standard_library.install_aliases()
 from builtins import range
 from builtins import object
 
-import re
 import os
 import sys
 import json
 import traceback
 from collections import OrderedDict
-from io import StringIO
 
 
 from tblib import Traceback
@@ -161,7 +159,7 @@ class PytestRunner(Runner):
     _test_fail_states = ['failed', 'error', None, '']
 
     def get_test_id(self, test):
-        return test.nodeid  #.replace('/', '.')
+        return test.nodeid  # .replace('/', '.')
 
     @classmethod
     def process_init_tests(cls, write_pipe, pipe_size, pipe_semaphore, debug, pytest_args):
@@ -205,8 +203,10 @@ class PytestRunner(Runner):
         """ Class method as a separate process entrypoint """
         logging_tools.configure('pytui-runner.log', debug)
         logger = get_logger(log_name)
-        logger.info('Test run started (failed_only: %s, filtered: %s, pytest args: %s, select_tests: %s)',
-                    failed_only, filtered, ' '.join(pytest_args), select_tests)
+        logger.info(
+            'Test run started (failed_only: %s, filtered: %s, pytest args: %s, select_tests: %s)',
+            failed_only, filtered, ' '.join(pytest_args), select_tests
+        )
 
         sys.stdout = stdout_logger_writer
         sys.stderr = stderr_logger_writer
@@ -214,7 +214,10 @@ class PytestRunner(Runner):
         runner = cls(write_pipe=write_pipe, pipe_size=pipe_size,
                      pipe_semaphore=pipe_semaphore)
         try:
-            exitcode, description = runner.run_tests(failed_only, filter_value, pytest_args, select_tests)
+            exitcode, description = runner.run_tests(failed_only,
+                                                     filter_value,
+                                                     pytest_args,
+                                                     select_tests)
         except Exception as exc:
             exitcode = PytestExitcodes.CRASHED
             description = str(exc)
@@ -247,7 +250,13 @@ class PytestRunner(Runner):
         try:
             exitcode = pytest.main(
                 args,
-                plugins=[PytestPlugin(runner=self, filter_value=filter_value, select_tests=select_tests)]
+                plugins=[
+                    PytestPlugin(
+                        runner=self,
+                        filter_value=filter_value,
+                        select_tests=select_tests
+                    )
+                ]
             )
         except Exception as e:
             return PytestExitcodes.CRASHED, traceback.format_exc(e)
