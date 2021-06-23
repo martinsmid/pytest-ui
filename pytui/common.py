@@ -2,7 +2,7 @@ from __future__ import unicode_literals
 from builtins import object
 
 import re
-from .logging_tools import get_logger
+from logging_tools import get_logger
 
 logger = get_logger('ui')
 
