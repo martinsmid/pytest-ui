@@ -1,8 +1,15 @@
+version 0.5
+-----------
+- run single test
+- update ui
+
+
 version 0.4
 -----------
 
 - drop beta from version number
 - fix fuzzy and non-fuzzy boundary filter issue
+
 
 version 0.3.6b0
 ---------------
