@@ -239,7 +239,7 @@ class PytestRunner(Runner):
         # self.tests[self.get_test_id(item)] = item
         self.pipe_send('item_collected', item_id=self.get_test_id(item))
 
-    def run_tests(self, failed_only, filter_value, pytest_args, select_tests):
+    def run_tests(self, failed_only, filter_value, pytest_args, select_tests=None):
         args = [
             '-vv',
         ]
