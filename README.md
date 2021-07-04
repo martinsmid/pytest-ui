@@ -23,6 +23,7 @@ Options:
 # keyboard controls
   - <kbd>r</kbd>, <kbd>F5</kbd> - run tests (last failed or first run, using filter)
   - <kbd>R</kbd>, <kbd>Ctrl</kbd> + <kbd>F5</kbd> - run all tests (using filter)
+  - <kbd>s</kbd> - run single test under cursor
   - <kbd>/</kbd> - focus filter input
   - <kbd>Ctrl</kbd> + <kbd>f</kbd> - clear filter input and focus it
   - <kbd>F4</kbd> - toggle show only failed tests
